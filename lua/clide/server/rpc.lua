@@ -50,7 +50,11 @@ function Dispatcher:handle(text)
       self:respond(msg.id, result, err)
     end)
   elseif msg.id then
-    self:respond(msg.id, nil, { code = -32601, message = "Method not found: " .. tostring(msg.method) })
+    self:respond(
+      msg.id,
+      nil,
+      { code = -32601, message = "Method not found: " .. tostring(msg.method) }
+    )
   end
   -- notifications (no id) for unknown methods: ignored per JSON-RPC 2.0
 end

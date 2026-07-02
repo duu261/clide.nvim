@@ -67,9 +67,11 @@ end
 ---@param msg string
 ---@return string hex 40-char lowercase hex digest
 function M.hex(msg)
-  return (M.digest(msg):gsub(".", function(c)
-    return string.format("%02x", string.byte(c))
-  end))
+  return (
+    M.digest(msg):gsub(".", function(c)
+      return string.format("%02x", string.byte(c))
+    end)
+  )
 end
 
 return M

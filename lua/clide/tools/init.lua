@@ -3,9 +3,11 @@ local log = require("clide.util.log")
 local M = {}
 
 --- Sentinel: handler will call respond() itself later (blocking tools).
-M.DEFER = setmetatable({}, { __tostring = function()
-  return "clide.tools.DEFER"
-end })
+M.DEFER = setmetatable({}, {
+  __tostring = function()
+    return "clide.tools.DEFER"
+  end,
+})
 
 local registry = {}
 
