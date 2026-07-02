@@ -16,6 +16,7 @@ describe("simple tools", function()
   before_each(function()
     -- Clear all tool modules and the tools registry
     package.loaded["clide.tools"] = nil
+    package.loaded["clide.selection"] = nil
     for _, mod in ipairs({
       "open_file",
       "open_diff",
