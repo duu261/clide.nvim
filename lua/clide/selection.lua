@@ -58,8 +58,11 @@ end
 --- notify: function(method, params)
 function M.enable(notify)
   if timer then
-    timer:stop()
-    timer:close()
+    pcall(function()
+      timer:stop()
+      timer:close()
+    end)
+    timer = nil
   end
   notify_fn = notify
   timer = vim.uv.new_timer()
@@ -76,11 +79,15 @@ end
 --- Disable selection tracking.
 function M.disable()
   if timer then
-    timer:stop()
-    timer:close()
+    pcall(function()
+      timer:stop()
+      timer:close()
+    end)
+    timer = nil
   end
   if augroup then
     vim.api.nvim_del_augroup_by_id(augroup)
+    augroup = nil
   end
   notify_fn = nil
 end
