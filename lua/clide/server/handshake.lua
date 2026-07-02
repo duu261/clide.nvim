@@ -10,7 +10,7 @@ end
 
 --- @return table|nil req {method, path, headers} — nil until "\r\n\r\n" seen
 function M.parse_request(data)
-  local head = data:match("^(.-)%\r\n%\r\n")
+  local head = data:match("^(.-)\r\n\r\n")
   if not head then
     return nil
   end

@@ -35,7 +35,7 @@ function M.start(opts)
     end
     local sock = vim.uv.new_tcp()
     handle:accept(sock)
-    local client = { sock = sock, buf = "", ready = false }
+    local client = { sock = sock, buf = "", ready = false, rejected = false }
     sock:read_start(function(rerr, data)
       if rerr or not data then
         M.disconnect(server, client)
@@ -54,6 +54,9 @@ function M.start(opts)
 end
 
 function M.process(server, client)
+  if client.rejected then
+    return
+  end
   if not client.ready then
     local req = handshake.parse_request(client.buf)
     if not req then
@@ -61,6 +64,7 @@ function M.process(server, client)
     end
     local resp, err_resp = handshake.response(req, server.opts.auth_token)
     if not resp then
+      client.rejected = true
       client.sock:write(err_resp, function()
         M.disconnect(server, client)
       end)
