@@ -1,0 +1,36 @@
+local lockfile = require("clide.lockfile")
+
+describe("lockfile", function()
+  local dir = vim.fn.tempname()
+
+  before_each(function()
+    vim.fn.mkdir(dir, "p")
+    lockfile.set_dir(dir)
+  end)
+
+  it("generates 32-char lowercase hex tokens", function()
+    local t1, t2 = lockfile.generate_token(), lockfile.generate_token()
+    assert.matches("^[0-9a-f]+$", t1)
+    assert.equals(32, #t1)
+    assert.is_not.equals(t1, t2)
+  end)
+
+  it("writes protocol-shaped lock file and removes it", function()
+    local path = lockfile.write(12345, "aa" .. string.rep("0", 30))
+    local data = vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
+    assert.equals("Neovim", data.ideName)
+    assert.equals("ws", data.transport)
+    assert.equals(vim.uv.os_getpid(), data.pid)
+    assert.equals(vim.uv.cwd(), data.workspaceFolders[1])
+    assert.equals(32, #data.authToken)
+    lockfile.remove(12345)
+    assert.equals(0, vim.fn.filereadable(path))
+  end)
+
+  it("cleans lock files whose pid is dead", function()
+    local stale = dir .. "/99999.lock"
+    vim.fn.writefile({ vim.json.encode({ pid = 4194304, authToken = "x" }) }, stale)
+    lockfile.clean_stale()
+    assert.equals(0, vim.fn.filereadable(stale))
+  end)
+end)
