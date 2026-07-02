@@ -131,4 +131,10 @@ describe("getDiagnostics", function()
     assert.equals(0, found.range.start.line)
     vim.diagnostic.reset(ns, bufnr)
   end)
+
+  it("returns a JSON array for a uri with no open buffer", function()
+    local result = call("getDiagnostics", { uri = "file:///nonexistent/nowhere.txt" })
+    -- protocol requires an array; empty table must encode as [] not {}
+    assert.equals("[]", result.content[1].text)
+  end)
 end)
