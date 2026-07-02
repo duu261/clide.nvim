@@ -57,6 +57,10 @@ end
 --- Enable debounced selection_changed notifications.
 --- notify: function(method, params)
 function M.enable(notify)
+  if timer then
+    timer:stop()
+    timer:close()
+  end
   notify_fn = notify
   timer = vim.uv.new_timer()
   augroup = vim.api.nvim_create_augroup("ClideSelection", { clear = true })
