@@ -1,12 +1,16 @@
-local rpc = require("clide.server.rpc")
-local tools = require("clide.tools")
-
 describe("rpc", function()
   local sent
   local dispatcher
+  local tools
+  local rpc
 
   before_each(function()
     sent = {}
+    -- Reset both modules to clear registry state between tests
+    package.loaded["clide.tools"] = nil
+    package.loaded["clide.server.rpc"] = nil
+    tools = require("clide.tools")
+    rpc = require("clide.server.rpc")
     dispatcher = rpc.new(function(text)
       table.insert(sent, vim.json.decode(text))
     end)
@@ -37,6 +41,14 @@ describe("rpc", function()
   end)
 
   it("calls a tool and returns its result", function()
+    tools.register({
+      name = "zzz_test_tool",
+      description = "test",
+      inputSchema = { type = "object" },
+      handler = function()
+        return tools.text_result("ok")
+      end,
+    })
     dispatcher:handle(
       '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"zzz_test_tool","arguments":{}}}'
     )
