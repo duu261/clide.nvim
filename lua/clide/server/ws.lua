@@ -4,6 +4,10 @@ local log = require("clide.util.log")
 
 local M = {}
 
+-- Same rationale as frame.MAX_PAYLOAD: cap the unparsed handshake buffer so a
+-- client that never sends "\r\n\r\n" can't grow it without limit.
+local MAX_HANDSHAKE_SIZE = 16 * 1024
+
 --- Start the server.
 --- opts: { auth_token, on_message(client, text), on_connect(client), on_disconnect(client) }
 --- @return table|nil server {port, clients, handle}, string|nil err
@@ -29,21 +33,26 @@ function M.start(opts)
       log.log("error", "listen error: " .. err)
       return
     end
-    local sock = vim.uv.new_tcp()
-    handle:accept(sock)
-    local client = { sock = sock, buf = "", ready = false, rejected = false }
-    sock:read_start(function(rerr, data)
-      if rerr or not data then
-        M.disconnect(server, client)
-        return
-      end
-      client.buf = client.buf .. data
-      local ok, perr = pcall(M.process, server, client)
-      if not ok then
-        log.log("error", "ws process error: " .. tostring(perr))
-        M.disconnect(server, client)
-      end
+    local ok, aerr = pcall(function()
+      local sock = vim.uv.new_tcp()
+      handle:accept(sock)
+      local client = { sock = sock, buf = "", ready = false, rejected = false }
+      sock:read_start(function(rerr, data)
+        if rerr or not data then
+          M.disconnect(server, client)
+          return
+        end
+        client.buf = client.buf .. data
+        local pok, perr = pcall(M.process, server, client)
+        if not pok then
+          log.log("error", "ws process error: " .. tostring(perr))
+          M.disconnect(server, client)
+        end
+      end)
     end)
+    if not ok then
+      log.log("error", "accept error: " .. tostring(aerr))
+    end
   end)
 
   return server
@@ -56,6 +65,10 @@ function M.process(server, client)
   if not client.ready then
     local req = handshake.parse_request(client.buf)
     if not req then
+      if #client.buf > MAX_HANDSHAKE_SIZE then
+        log.log("error", "handshake request too large")
+        M.disconnect(server, client)
+      end
       return -- wait for more bytes
     end
     local resp, err_resp = handshake.response(req, server.opts.auth_token)
@@ -78,7 +91,12 @@ function M.process(server, client)
   end
 
   while true do
-    local f, rest = frame.decode(client.buf)
+    local f, rest, ferr = frame.decode(client.buf)
+    if ferr then
+      log.log("error", ferr)
+      M.disconnect(server, client)
+      return
+    end
     if not f then
       return
     end
@@ -86,7 +104,10 @@ function M.process(server, client)
     if f.opcode == frame.TEXT then
       if server.opts.on_message then
         vim.schedule(function()
-          server.opts.on_message(client, f.payload)
+          local ok, merr = pcall(server.opts.on_message, client, f.payload)
+          if not ok then
+            log.log("error", "on_message handler error: " .. tostring(merr))
+          end
         end)
       end
     elseif f.opcode == frame.PING then

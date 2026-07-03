@@ -1,4 +1,5 @@
 local tools = require("clide.tools")
+local eol = require("clide.util.eol")
 
 local M = {}
 
@@ -104,17 +105,7 @@ function M.finish(tab_name, verdict)
     if lines[#lines] == "" then
       table.remove(lines)
     end
-    local final_content = table.concat(lines, "\n")
-    -- Append trailing newline if buffer has eol set and content is non-empty
-    if #lines > 0 then
-      if vim.api.nvim_buf_is_valid(rec.scratch_buf) and vim.bo[rec.scratch_buf].eol then
-        final_content = final_content .. "\n"
-      elseif
-        not vim.api.nvim_buf_is_valid(rec.scratch_buf) and rec.new_contents:sub(-1) == "\n"
-      then
-        final_content = final_content .. "\n"
-      end
-    end
+    local final_content = eol.join(lines, rec.scratch_buf, rec.new_contents)
     -- Do NOT write the file; the Claude CLI will do that after receiving FILE_SAVED.
     rec.respond({
       content = {

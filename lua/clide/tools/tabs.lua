@@ -14,6 +14,11 @@ tools.register({
       require("clide.review.engine").resolve_all(review, "reject")
       return tools.text_result("TAB_CLOSED")
     end
+    local open_diff = require("clide.tools.open_diff")
+    if open_diff.active[args.tab_name] then
+      open_diff.finish(args.tab_name, "reject")
+      return tools.text_result("TAB_CLOSED")
+    end
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
       local name = vim.api.nvim_buf_get_name(bufnr)
       if vim.fn.fnamemodify(name, ":t") == args.tab_name then

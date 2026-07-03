@@ -12,10 +12,14 @@ local M = {
   CLOSE = 0x8,
   PING = 0x9,
   PONG = 0xA,
+  -- localhost-only peer, but an unbounded declared length would let a
+  -- malformed/malicious frame make the buffer grow without limit while we
+  -- wait for the rest of the payload to arrive.
+  MAX_PAYLOAD = 16 * 1024 * 1024,
 }
 
 --- Decode one frame from buf.
---- @return table|nil frame {fin, opcode, payload}, string rest
+--- @return table|nil frame {fin, opcode, payload}, string rest, string|nil err
 function M.decode(buf)
   if #buf < 2 then
     return nil, buf
@@ -43,6 +47,10 @@ function M.decode(buf)
       len = len * 256 + buf:byte(i)
     end
     pos = 11
+  end
+
+  if len > M.MAX_PAYLOAD then
+    return nil, buf, "frame payload too large: " .. len
   end
 
   local mask_len = masked and 4 or 0
