@@ -6,6 +6,12 @@ vim.o.swapfile = false
 -- Stub snacks.terminal for provider tests (optional dep)
 if not pcall(require, "snacks.terminal") then
   package.preload["snacks.terminal"] = function()
-    return { open = function() end, get = function() return nil end, toggle = function() end }
+    return {
+      open = function() end,
+      get = function()
+        return nil
+      end,
+      toggle = function() end,
+    }
   end
 end

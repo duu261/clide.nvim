@@ -39,7 +39,9 @@ describe("terminal provider resolution", function()
     -- Temporarily replace snacks is_available to force native
     local snacks = require("clide.terminal.snacks")
     local orig = snacks.is_available
-    snacks.is_available = function() return false end
+    snacks.is_available = function()
+      return false
+    end
     config.setup({ terminal = { provider = "auto" } })
     local p = terminal.provider()
     assert.equals("native", p.name)
@@ -79,7 +81,10 @@ describe("terminal none provider", function()
     local none = require("clide.terminal.none")
     local opened = false
     local orig = none.open
-    none.open = function(...) opened = true; orig(...) end
+    none.open = function(...)
+      opened = true
+      orig(...)
+    end
     none.toggle("claude", {})
     none.open = orig
     assert.is_true(opened)

@@ -14,22 +14,35 @@ tools.register({
     end
 
     if vim.fn.executable("claude") == 1 then
-      table.insert(checks, { name = "claude binary", status = "ok", detail = vim.fn.exepath("claude") })
+      table.insert(
+        checks,
+        { name = "claude binary", status = "ok", detail = vim.fn.exepath("claude") }
+      )
     else
-      table.insert(checks, { name = "claude binary", status = "error", detail = "not found in PATH" })
+      table.insert(
+        checks,
+        { name = "claude binary", status = "error", detail = "not found in PATH" }
+      )
     end
 
     if pcall(require, "plenary.path") then
       table.insert(checks, { name = "plenary.nvim", status = "ok" })
     else
-      table.insert(checks, { name = "plenary.nvim", status = "error", detail = "install nvim-lua/plenary.nvim" })
+      table.insert(
+        checks,
+        { name = "plenary.nvim", status = "error", detail = "install nvim-lua/plenary.nvim" }
+      )
     end
 
     local lock_dir = vim.fn.expand("~/.claude/ide")
     if vim.fn.isdirectory(lock_dir) == 1 then
       table.insert(checks, { name = "lock directory", status = "ok", detail = lock_dir })
     else
-      table.insert(checks, { name = "lock directory", status = "warn", detail = "not yet created (ClideStart creates it)" })
+      table.insert(checks, {
+        name = "lock directory",
+        status = "warn",
+        detail = "not yet created (ClideStart creates it)",
+      })
     end
 
     return tools.json_result(checks)

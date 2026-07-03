@@ -6,7 +6,7 @@ tools.register({
   inputSchema = {
     type = "object",
     properties = {
--- ponytail: one tool, three ops
+      -- ponytail: one tool, three ops
       filePath = { type = "string", description = "Path to the file" },
       action = {
         type = "string",
@@ -38,12 +38,10 @@ tools.register({
       end
       local new_lines = vim.split(args.text, "\n")
       vim.api.nvim_buf_set_lines(bufnr, line0, line0, false, new_lines)
-
     elseif args.action == "replace" then
       local end0 = (args.endLine and args.endLine - 1) or line0
       local new_lines = (args.text and args.text ~= "") and vim.split(args.text, "\n") or {}
       vim.api.nvim_buf_set_lines(bufnr, line0, end0 + 1, false, new_lines)
-
     elseif args.action == "delete" then
       local end0 = (args.endLine and args.endLine - 1) or line0
       vim.api.nvim_buf_set_lines(bufnr, line0, end0 + 1, false, {})
