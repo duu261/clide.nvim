@@ -3,6 +3,7 @@ local M = {}
 local defaults = {
   autostart = false,
   follow = false,
+  auto_install_mcp = true,
   log_level = "info",
   terminal = {
     provider = "auto", -- auto | native | snacks | tmux | none

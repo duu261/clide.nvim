@@ -67,6 +67,33 @@ function M.start()
   M.state.server = server
   M.state.rpc = rpc
 
+  -- Start SSE MCP server (non-fatal: WS continues if this fails)
+  local sse_ok, sse_err = pcall(function()
+    local sse = require("clide.server.sse")
+    local sse_server = sse.start({
+      on_message = function(text)
+        if M.state.sse_rpc then
+          M.state.sse_rpc:handle(text)
+        end
+      end,
+    })
+    if sse_server then
+      M.state.sse_rpc = rpc_mod.new(function(text)
+        sse.send(sse_server, text)
+      end)
+      M.state.sse_server = sse_server
+
+      if config.get().auto_install_mcp then
+        require("clide.mcp_config").install(sse_server.port)
+      end
+    else
+      vim.notify("clide: SSE MCP server failed to start", vim.log.levels.WARN)
+    end
+  end)
+  if not sse_ok then
+    vim.notify("clide: SSE MCP server error: " .. tostring(sse_err), vim.log.levels.WARN)
+  end
+
   vim.api.nvim_create_autocmd("VimLeavePre", {
     group = vim.api.nvim_create_augroup("ClideLifecycle", { clear = true }),
     callback = M.stop,
@@ -84,6 +111,9 @@ function M.stop()
     require("clide.selection").disable()
     require("clide.lockfile").remove(state.server.port)
     require("clide.server.ws").stop(state.server)
+  end
+  if state.sse_server then
+    require("clide.server.sse").stop(state.sse_server)
   end
   require("clide.status").teardown()
   M.state = {}
