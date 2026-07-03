@@ -12,10 +12,10 @@ function M.start(opts)
   -- Bind port 0: the OS hands back a guaranteed-free ephemeral port, so there
   -- is no candidate collision to retry (unseeded math.random used to flake here).
   local handle = vim.uv.new_tcp()
-  local ok, bind_err = pcall(function()
+  local bound, bind_err = pcall(function()
     assert(handle:bind("127.0.0.1", 0) == 0)
   end)
-  if not ok then
+  if not bound then
     handle:close()
     return nil, "could not bind a port: " .. tostring(bind_err)
   end
