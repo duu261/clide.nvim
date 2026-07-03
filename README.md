@@ -1,12 +1,19 @@
 # clide.nvim
 
-Claude Code in Neovim — pure Lua, zero dependencies, inline per-hunk review.
+Claude Code in Neovim — pure Lua, inline per-hunk review.
 
 clide.nvim implements the Claude Code IDE protocol (the same WebSocket-MCP
 channel the official VS Code extension uses) directly in Lua on `vim.uv`.
 When Claude proposes edits, they appear as hunks **inside your real buffers**
 — accept or reject each one, Zed/Cursor style — instead of a side-by-side
 diff tab.
+
+## Demo
+
+<!-- Record a live inline-review session (nvim + claude, ga/gr on hunks),
+     save as demo.gif in the repo root, then replace this comment with:
+     ![clide.nvim inline review](demo.gif) -->
+_Demo GIF coming soon._
 
 ## Features
 
