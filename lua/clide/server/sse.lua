@@ -81,138 +81,128 @@ function M.start(opts)
       local buf = ""
 
       client:read_start(function(rerr, data)
-        if rerr then
-          -- ECONNRESET is normal TCP teardown when MCP client closes SSE stream
-          if rerr ~= "ECONNRESET" then
-            log.log("warn", "sse read error: " .. tostring(rerr))
-          end
-          pcall(client.close, client)
-          return
-        end
-        if not data then
-          -- Connection closed
-          pcall(client.close, client)
-          return
-        end
-        buf = buf .. data
-
-        -- Parse HTTP
-        local req = parse_http(buf)
-        if not req then
-          return -- waiting for more headers
-        end
-
-        -- Need body?
-        if req.content_length > 0 and #req.rest < req.content_length then
-          return -- waiting for body
-        end
-
-        buf = "" -- reset buffer
-
-        if req.path == "/sse" then
-          -- Streamable HTTP: POST with JSON-RPC, respond inline with SSE
-          if req.method == "POST" then
-            local body = req.rest:sub(1, req.content_length)
-            local ok, msg = pcall(vim.json.decode, body)
-            if not ok or type(msg) ~= "table" then
-              pcall(client.write, client, "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
-              pcall(client.close, client)
-              return
+        local ok, perr = pcall(function()
+          if rerr then
+            -- ECONNRESET is normal TCP teardown when MCP client closes SSE stream
+            if rerr ~= "ECONNRESET" then
+              log.log("warn", "sse read error: " .. tostring(rerr))
             end
-            -- Process JSON-RPC inline, capture response
-            local response_text
-            local rpc = require("clide.server.rpc")
-            local inline_rpc = rpc.new(function(text)
-              response_text = text
-            end)
-            inline_rpc:handle(body)
-            if response_text then
-              local frame = "event: message\r\ndata: " .. response_text .. "\r\n\r\n"
+            pcall(client.close, client)
+            return
+          end
+          if not data then
+            -- Connection closed
+            pcall(client.close, client)
+            return
+          end
+          buf = buf .. data
+
+          -- Parse HTTP
+          local req = parse_http(buf)
+          if not req then
+            return -- waiting for more headers
+          end
+
+          -- Need body?
+          if req.content_length > 0 and #req.rest < req.content_length then
+            return -- waiting for body
+          end
+
+          buf = "" -- reset buffer
+
+          if req.path == "/sse" then
+            -- Reject non-GET to force legacy HTTP+SSE transport
+            if req.method ~= "GET" then
               pcall(
                 client.write,
                 client,
-                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n" .. frame
+                "HTTP/1.1 405 Method Not Allowed\r\nAllow: GET\r\nContent-Length: 0\r\n\r\n"
               )
-            else
-              -- notification or deferred — ack and close
-              pcall(client.write, client, "HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\n\r\n")
+              pcall(client.close, client)
+              return
             end
-            pcall(client.close, client)
-            return
-          end
-          -- SSE event stream
-          if server.sse_client then
-            pcall(server.sse_client.close, server.sse_client)
-          end
-          server.sse_client = client
-          local rand_bytes = vim.uv.random(4)
-          server.session_id = (
-            rand_bytes:gsub(".", function(c)
-              return string.format("%02x", string.byte(c))
-            end)
-          )
-
-          -- Stop existing keepalive timer
-          if server.timer then
-            server.timer:stop()
-          end
-
-          -- Send 200 + SSE headers
-          pcall(
-            client.write,
-            client,
-            "HTTP/1.1 200 OK\r\n"
-              .. "Content-Type: text/event-stream\r\n"
-              .. "Cache-Control: no-cache\r\n"
-              .. "Connection: keep-alive\r\n\r\n"
-          )
-
-          -- Send endpoint event
-          pcall(
-            client.write,
-            client,
-            "event: endpoint\r\n"
-              .. "data: http://127.0.0.1:"
-              .. server.port
-              .. "/message?sessionId="
-              .. server.session_id
-              .. "\r\n\r\n"
-          )
-
-          -- Keepalive timer (15s)
-          server.timer = vim.uv.new_timer()
-          server.timer:start(15000, 15000, function()
+            -- SSE event stream
             if server.sse_client then
-              local ok3 = pcall(function()
-                server.sse_client:write(": keepalive\r\n\r\n")
+              pcall(server.sse_client.close, server.sse_client)
+            end
+            server.sse_client = client
+            local rand_bytes = vim.uv.random(4)
+            server.session_id = (
+              rand_bytes:gsub(".", function(c)
+                return string.format("%02x", string.byte(c))
               end)
-              if not ok3 then
-                server.sse_client = nil
-                if server.timer then
-                  server.timer:stop()
+            )
+
+            -- Stop existing keepalive timer
+            if server.timer then
+              server.timer:stop()
+            end
+
+            -- Send 200 + SSE headers
+            pcall(
+              client.write,
+              client,
+              "HTTP/1.1 200 OK\r\n"
+                .. "Content-Type: text/event-stream\r\n"
+                .. "Cache-Control: no-cache\r\n"
+                .. "Connection: keep-alive\r\n\r\n"
+            )
+
+            -- Send endpoint event
+            pcall(
+              client.write,
+              client,
+              "event: endpoint\r\n"
+                .. "data: http://127.0.0.1:"
+                .. server.port
+                .. "/message?sessionId="
+                .. server.session_id
+                .. "\r\n\r\n"
+            )
+
+            -- Keepalive timer (15s)
+            server.timer = vim.uv.new_timer()
+            server.timer:start(15000, 15000, function()
+              if server.sse_client then
+                local ok3 = pcall(function()
+                  server.sse_client:write(": keepalive\r\n\r\n")
+                end)
+                if not ok3 then
+                  server.sse_client = nil
+                  if server.timer then
+                    server.timer:stop()
+                  end
                 end
               end
+            end)
+          elseif req.path == "/message" then
+            -- Parse sessionId from query
+            local params = parse_query(req.query)
+            if params.sessionId ~= server.session_id then
+              pcall(client.write, client, "HTTP/1.1 400 Bad Request\r\n\r\n")
+              pcall(client.close, client)
+              return
             end
-          end)
-        elseif req.path == "/message" then
-          -- Parse sessionId from query
-          local params = parse_query(req.query)
-          if params.sessionId ~= server.session_id then
-            pcall(client.write, client, "HTTP/1.1 400 Bad Request\r\n\r\n")
-            pcall(client.close, client)
-            return
+            local body = req.rest:sub(1, req.content_length)
+            if opts.on_message then
+                -- Defer to main event loop so MCP tool handlers can call
+                -- Neovim API without hitting E5560 (fast event context).
+                vim.schedule(function()
+                  opts.on_message(body)
+                end)
+              end
+            pcall(client.write, client, "HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\n\r\n")
+          else
+            pcall(client.write, client, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
           end
-          local body = req.rest:sub(1, req.content_length)
-          if opts.on_message then
-            opts.on_message(body)
-          end
-          pcall(client.write, client, "HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\n\r\n")
-        else
-          pcall(client.write, client, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
-        end
 
-        -- Close non-SSE connections; SSE stream stays open
-        if req.path ~= "/sse" and client ~= server.sse_client then
+          -- Close non-SSE connections; SSE stream stays open
+          if req.path ~= "/sse" and client ~= server.sse_client then
+            pcall(client.close, client)
+          end
+        end)
+        if not ok then
+          log.log("warn", "sse read error: " .. tostring(perr))
           pcall(client.close, client)
         end
       end)
