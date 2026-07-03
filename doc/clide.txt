@@ -16,7 +16,8 @@ CONTENTS                                                        *clide-contents*
 
 clide.nvim implements the Claude Code IDE protocol (WebSocket-MCP) in pure
 Lua. Edits proposed by Claude render as inline hunks in your buffers with
-per-hunk accept/reject.
+per-hunk accept/reject. An SSE MCP server exposes all 12 IDE tools to
+Claude Code via the standard MCP transport.
 
 ==============================================================================
 2. REQUIREMENTS                                             *clide-requirements*
@@ -43,6 +44,9 @@ See README.md for all options and defaults.
 :{range}ClideSend    At-mention the range in Claude's context.
 :ClideReviewTab      Reopen the current inline review as a diff tab.
 :ClideInstallHooks   Install status hooks into .claude/settings.local.json.
+:ClideInstallMCP     Write MCP server config to .mcp.json and auto-approve
+                     in .claude/settings.local.json (auto-run on :ClideStart
+                     when auto_install_mcp = true, the default).
 :ClideLog            Show the log ring buffer.
 
 ==============================================================================
