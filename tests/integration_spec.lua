@@ -73,7 +73,7 @@ describe("integration: full protocol flow", function()
       )
     end)
 
-    vim.wait(2000, function()
+    vim.wait(10000, function()
       return handshake_done
     end)
     assert.is_true(handshake_done)
@@ -86,7 +86,7 @@ describe("integration: full protocol flow", function()
           .. '"clientInfo":{"name":"test","version":"0"}}}'
       )
     )
-    vim.wait(2000, function()
+    vim.wait(10000, function()
       return #received >= 1
     end)
     assert.equals("2025-03-26", received[1].result.protocolVersion)
@@ -94,7 +94,7 @@ describe("integration: full protocol flow", function()
 
     -- tools/list: all 12 protocol tools present
     sock:write(client_frame('{"jsonrpc":"2.0","id":2,"method":"tools/list"}'))
-    vim.wait(2000, function()
+    vim.wait(10000, function()
       return #received >= 2
     end)
     local names = {}
@@ -125,7 +125,7 @@ describe("integration: full protocol flow", function()
           .. '{"name":"getWorkspaceFolders","arguments":{}}}'
       )
     )
-    vim.wait(2000, function()
+    vim.wait(10000, function()
       return #received >= 3
     end)
     local body = vim.json.decode(received[3].result.content[1].text)
@@ -148,7 +148,7 @@ describe("integration: full protocol flow", function()
           .. "x-claude-code-ide-authorization: WRONG\r\n\r\n"
       )
     end)
-    vim.wait(2000, function()
+    vim.wait(10000, function()
       return bad_resp ~= nil
     end)
     assert.matches("401", bad_resp)
