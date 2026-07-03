@@ -13,7 +13,18 @@ tools.register({
   },
   handler = function(args)
     local fp = args.filePattern or "**"
-    vim.cmd("silent noautocmd grep! " .. args.pattern .. " " .. fp)
+    -- Internal :vimgrep (no shell) with args passed as a list, so a `;`, `$(...)`,
+    -- or `|` in user input stays literal instead of reaching a shell or the Ex
+    -- command parser. Escape the `/` delimiter inside the pattern.
+    local pat = args.pattern:gsub("/", "\\/")
+    pcall(function()
+      vim.cmd({
+        cmd = "vimgrep",
+        bang = true,
+        mods = { silent = true, noautocmd = true, emsg_silent = true },
+        args = { "/" .. pat .. "/gj", fp },
+      })
+    end)
     local qf = vim.fn.getqflist({ items = true, size = true })
     local results = {}
     for _, item in ipairs(qf.items or {}) do

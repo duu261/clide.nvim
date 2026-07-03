@@ -103,4 +103,19 @@ describe("simple tools", function()
     assert.is_false(body.success)
     assert.is_not_nil(body.error)
   end)
+
+  it("vim_grep does not execute shell metacharacters", function()
+    local sentinel = vim.fn.tempname()
+    -- With the old external :grep, these would reach a shell and create the file.
+    -- Internal :vimgrep must treat them as literal pattern/glob text.
+    call("vim_grep", { pattern = "x", filePattern = "z; touch " .. sentinel })
+    call("vim_grep", { pattern = "$(touch " .. sentinel .. ")", filePattern = "**" })
+    assert.equals(0, vim.fn.filereadable(sentinel), "shell metacharacters were executed")
+  end)
+
+  it("vim_search returns error for invalid regex instead of throwing", function()
+    local result = call("vim_search", { pattern = "\\(" })
+    local body = vim.json.decode(result.content[1].text)
+    assert.is_not_nil(body.error)
+  end)
 end)

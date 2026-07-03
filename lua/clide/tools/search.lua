@@ -22,8 +22,8 @@ tools.register({
     if args.wholeWord then
       pattern = "\\<" .. pattern .. "\\>"
     end
-    local re = vim.regex(pattern)
-    if not re then
+    local ok, re = pcall(vim.regex, pattern)
+    if not ok or not re then
       return tools.json_result({ error = "invalid regex: " .. pattern })
     end
 

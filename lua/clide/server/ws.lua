@@ -7,6 +7,9 @@ local M = {}
 -- Same rationale as frame.MAX_PAYLOAD: cap the unparsed handshake buffer so a
 -- client that never sends "\r\n\r\n" can't grow it without limit.
 local MAX_HANDSHAKE_SIZE = 16 * 1024
+-- After handshake, a client sending partial frames (slow-roll attack) could grow
+-- the accumulated unparsed buffer without bound. Disconnect above this threshold.
+local MAX_BUFFER_SIZE = 256 * 1024
 
 --- Start the server.
 --- opts: { auth_token, on_message(client, text), on_connect(client), on_disconnect(client) }
@@ -98,6 +101,10 @@ function M.process(server, client)
       return
     end
     if not f then
+      if #client.buf > MAX_BUFFER_SIZE then
+        log.log("error", "client buffer exceeded " .. MAX_BUFFER_SIZE .. " bytes")
+        M.disconnect(server, client)
+      end
       return
     end
     client.buf = rest

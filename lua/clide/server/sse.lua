@@ -1,5 +1,8 @@
 local log = require("clide.util.log")
 
+-- Cap the unparsed HTTP header buffer so a slow client can't grow it unbounded.
+local MAX_HEADER_SIZE = 16 * 1024
+
 local M = {}
 
 --- Minimal HTTP request parse from buffered bytes.
@@ -97,6 +100,13 @@ function M.start(opts)
           end
           buf = buf .. data
 
+          -- Cap unparsed header size
+          if #buf > MAX_HEADER_SIZE then
+            log.log("warn", "sse header exceeded " .. MAX_HEADER_SIZE .. " bytes")
+            pcall(client.close, client)
+            return
+          end
+
           -- Parse HTTP
           local req = parse_http(buf)
           if not req then
@@ -178,7 +188,9 @@ function M.start(opts)
           elseif req.path == "/message" then
             -- Parse sessionId from query
             local params = parse_query(req.query)
-            if params.sessionId ~= server.session_id then
+            -- Reject before an SSE stream exists (session_id still nil): otherwise
+            -- a missing sessionId compares nil ~= nil = false and slips past auth.
+            if not server.session_id or params.sessionId ~= server.session_id then
               pcall(client.write, client, "HTTP/1.1 400 Bad Request\r\n\r\n")
               pcall(client.close, client)
               return

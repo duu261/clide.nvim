@@ -13,6 +13,47 @@ describe("SSE server", function()
     sse.stop(server)
   end)
 
+  it("rejects POST /message before an SSE session exists (auth)", function()
+    local called = false
+    local server = assert(sse.start({
+      on_message = function()
+        called = true
+      end,
+    }))
+
+    -- No /sse GET yet, so server.session_id is nil. A /message with no sessionId
+    -- must be rejected, not slip past via nil ~= nil == false.
+    local post_sock = vim.uv.new_tcp()
+    local post_raw = ""
+    post_sock:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      post_sock:read_start(function(_, data)
+        if data then
+          post_raw = post_raw .. data
+        end
+      end)
+      local body = vim.json.encode({ jsonrpc = "2.0", id = 1, method = "tools/list" })
+      post_sock:write(
+        "POST /message HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. body
+      )
+    end)
+
+    vim.wait(1000, function()
+      return post_raw:find("400", 1, true) ~= nil
+    end)
+    assert.is_false(called, "on_message ran without a valid session")
+    assert.is_not_nil(post_raw:find("400 Bad Request", 1, true))
+
+    post_sock:close()
+    sse.stop(server)
+  end)
+
   it("serves SSE endpoint event on GET /sse", function()
     local server = assert(sse.start({ on_message = function() end }))
 
