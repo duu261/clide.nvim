@@ -25,7 +25,7 @@ lazy.nvim:
 
 ```lua
 {
-  "OWNER/clide.nvim",
+  "duu261/clide.nvim",
   opts = {},
   cmd = { "ClideStart", "ClideToggle" },
   dependencies = { "nvim-lua/plenary.nvim" },
