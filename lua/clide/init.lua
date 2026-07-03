@@ -62,6 +62,8 @@ function M.start()
     rpc:notify(method, params)
   end)
 
+  require("clide.status").setup()
+
   M.state.server = server
   M.state.rpc = rpc
 
@@ -83,6 +85,7 @@ function M.stop()
     require("clide.lockfile").remove(state.server.port)
     require("clide.server.ws").stop(state.server)
   end
+  require("clide.status").teardown()
   M.state = {}
 end
 

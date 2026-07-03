@@ -40,6 +40,9 @@ function M.setup()
       respond = respond,
     })
   end, { desc = "Reopen current review as side-by-side diff tab" })
+  vim.api.nvim_create_user_command("ClideInstallHooks", function()
+    require("clide.status").install_hooks()
+  end, { desc = "Install Claude Code status hooks into project settings" })
 end
 
 return M
