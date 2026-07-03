@@ -77,6 +77,9 @@ function M.resolve_hunk(review, hunk, verdict)
   hunk.state = verdict == "accept" and "accepted" or "rejected"
   review.resolved = review.resolved + 1
 
+  local label = verdict == "accept" and "Accepted" or "Rejected"
+  vim.notify("clide: " .. label .. " hunk (" .. review.resolved .. "/" .. #review.hunks .. ")", vim.log.levels.INFO)
+
   if verdict == "accept" then
     review.accepted = review.accepted + 1
     -- current position via extmark (buffer may have shifted)
@@ -158,6 +161,12 @@ function M.finish(review)
         { type = "text", text = review.tab_name },
       },
     })
+  end
+
+  if review.accepted > 0 then
+    vim.notify("clide: review complete \xe2\x80\x94 " .. review.accepted .. "/" .. #review.hunks .. " accepted", vim.log.levels.INFO)
+  else
+    vim.notify("clide: review complete \xe2\x80\x94 all hunks rejected", vim.log.levels.INFO)
   end
 
   render.detach(review)
