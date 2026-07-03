@@ -19,7 +19,8 @@ _Demo GIF coming soon._
 
 - **Minimal dependencies** — Neovim >= 0.10, the `claude` CLI, and plenary.nvim. No Node, no Rust.
 - **Full protocol parity** — lock-file discovery, auth, all 12 MCP tools,
-  selection tracking, `@`-mentions.
+  selection tracking, `@`-mentions. SSE MCP server exposes tools to Claude Code
+  via `.mcp.json`.
 - **Inline review** — per-hunk accept/reject with extmark-anchored hunks that
   survive your own edits; cross-file review queue with `]h` / `[h`.
 - **tmux built in** — claude runs in a real tmux pane that survives Neovim.
@@ -87,16 +88,18 @@ Run `:ClideInstallHooks` once per project to enable working/waiting/idle states.
 | `:'<,'>ClideSend` | At-mention the selected range |
 | `:ClideReviewTab` | Reopen current review as a diff tab |
 | `:ClideInstallHooks` | Install statusline hooks into `.claude/settings.local.json` |
+| `:ClideInstallMCP` | Write MCP server config to `.mcp.json` + auto-approve |
 | `:ClideLog` | Show the log ring buffer |
 | `:checkhealth clide` | Diagnose setup |
 
 ## How it works
 
-Neovim runs a WebSocket server on `127.0.0.1` (random port 10000-65535),
-writes `~/.claude/ide/[port].lock` with a CSPRNG auth token, and launches
-`claude` with `CLAUDE_CODE_SSE_PORT` + `ENABLE_IDE_INTEGRATION=true`. Claude
-connects back and drives the editor over JSON-RPC 2.0 / MCP. See
-[PROTOCOL.md](PROTOCOL.md) for the full reverse-engineered protocol reference.
+Neovim runs a WebSocket server (IDE protocol) and an SSE MCP server on
+`127.0.0.1`, writes `~/.claude/ide/[port].lock` with a CSPRNG auth token,
+and launches `claude` with `CLAUDE_CODE_SSE_PORT` + `ENABLE_IDE_INTEGRATION=true`.
+The SSE server auto-writes `.mcp.json` so Claude Code discovers all 12 IDE tools
+as MCP tools. Claude connects back and drives the editor over JSON-RPC 2.0 / MCP.
+See [PROTOCOL.md](PROTOCOL.md) for the full reverse-engineered protocol reference.
 
 WebSocket internals informed by MIT-licensed
 [coder/claudecode.nvim](https://github.com/coder/claudecode.nvim).
