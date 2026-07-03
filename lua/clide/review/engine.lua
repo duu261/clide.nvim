@@ -43,6 +43,10 @@ function M.open(args, respond)
     -- Content is identical; respond with current buffer content
     local buffer_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
     local final_content = table.concat(buffer_lines, "\n")
+    -- Append trailing newline if buffer has eol set and content is non-empty
+    if #buffer_lines > 0 and vim.bo[bufnr].eol then
+      final_content = final_content .. "\n"
+    end
     respond({
       content = {
         { type = "text", text = "FILE_SAVED" },
@@ -141,6 +145,10 @@ function M.finish(review)
     -- Get the current buffer content for the response.
     local buffer_lines = vim.api.nvim_buf_get_lines(review.bufnr, 0, -1, false)
     local final_content = table.concat(buffer_lines, "\n")
+    -- Append trailing newline if buffer has eol set and content is non-empty
+    if #buffer_lines > 0 and vim.bo[review.bufnr].eol then
+      final_content = final_content .. "\n"
+    end
     review.respond({
       content = {
         { type = "text", text = "FILE_SAVED" },

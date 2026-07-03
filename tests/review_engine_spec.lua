@@ -26,7 +26,7 @@ describe("review engine", function()
       response = r
     end)
     assert.equals("FILE_SAVED", response.content[1].text)
-    assert.equals("same", response.content[2].text)
+    assert.equals("same\n", response.content[2].text)
   end)
 
   it("accepting all hunks rewrites buffer and responds FILE_SAVED", function()
@@ -42,7 +42,7 @@ describe("review engine", function()
     assert.is_nil(response) -- deferred
     engine.resolve_all(review, "accept")
     assert.equals("FILE_SAVED", response.content[1].text)
-    assert.equals("keep\nnew\nkeep2\nadded", response.content[2].text)
+    assert.equals("keep\nnew\nkeep2\nadded\n", response.content[2].text)
     assert.same({ "keep", "new", "keep2", "added" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 
@@ -76,7 +76,7 @@ describe("review engine", function()
     engine.resolve_hunk(review, review.hunks[1], "accept")
     engine.resolve_hunk(review, review.hunks[2], "reject")
     assert.equals("FILE_SAVED", response.content[1].text)
-    assert.equals("AAA\nbbb\nccc", response.content[2].text)
+    assert.equals("AAA\nbbb\nccc\n", response.content[2].text)
     assert.same({ "AAA", "bbb", "ccc" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 

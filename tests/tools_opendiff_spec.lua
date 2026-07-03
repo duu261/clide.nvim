@@ -58,7 +58,7 @@ describe("openDiff classic", function()
     local open_diff_module = require("clide.tools.open_diff")
     open_diff_module.finish("test-diff", "accept")
     assert.equals("FILE_SAVED", response().result.content[1].text)
-    assert.equals("accepted content", response().result.content[2].text)
+    assert.equals("accepted content\n", response().result.content[2].text)
     -- File should NOT be written by clide; it should still have original content
     assert.same(file_content_before, vim.fn.readfile(tmp))
     vim.fn.delete(tmp)
