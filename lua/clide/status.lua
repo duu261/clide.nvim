@@ -27,7 +27,7 @@ function M.setup()
     {},
     vim.schedule_wrap(function()
       cached = read_state()
-      vim.cmd("redrawstatus")
+      pcall(vim.cmd, "redrawstatus")
     end)
   )
 end
@@ -49,6 +49,8 @@ function M.get()
   if not state.connected then
     return "disconnected"
   end
+  -- ponytail: sync read per render beats stale cache; avoids race between hook
+  -- file write and fs_event delivery. Switch to cached if statusline profiling shows cost.
   return read_state()
 end
 
@@ -77,7 +79,7 @@ end
 function M.hooks_config()
   local file = M.state_file()
   local function write_cmd(state)
-    return "sh -c 'echo " .. state .. " > " .. file .. "'"
+    return "sh -c 'echo " .. state .. " > " .. vim.fn.shellescape(file) .. "'"
   end
   return {
     hooks = {
