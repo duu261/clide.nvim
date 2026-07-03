@@ -41,7 +41,7 @@ function M.write(port, token)
 end
 
 function M.remove(port)
-  vim.uv.fs_unlink(M.path(port))
+  Path:new(M.path(port)):rm()
 end
 
 function M.clean_stale()
@@ -51,10 +51,10 @@ function M.clean_stale()
     return
   end
   for _, path in ipairs(files) do
-    local content = table.concat(vim.fn.readfile(path), "\n")
+    local content = Path:new(path):read()
     local ok, data = pcall(vim.json.decode, content)
     if ok and type(data) == "table" and data.pid and vim.uv.kill(data.pid, 0) ~= 0 then
-      vim.uv.fs_unlink(path)
+      Path:new(path):rm()
     end
   end
 end

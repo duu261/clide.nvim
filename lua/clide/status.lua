@@ -1,5 +1,6 @@
 local M = {}
 
+local Path = require("plenary.path")
 local watcher = nil
 local cached = nil
 
@@ -10,11 +11,13 @@ function M.state_file()
 end
 
 local function read_state()
-  local ok, lines = pcall(vim.fn.readfile, M.state_file())
-  if not ok or #lines == 0 then
+  local ok, content = pcall(function()
+    return Path:new(M.state_file()):read()
+  end)
+  if not ok or not content or content == "" then
     return "idle"
   end
-  return vim.trim(lines[1])
+  return vim.trim(vim.split(content, "\n")[1])
 end
 
 function M.setup()
@@ -94,9 +97,11 @@ end
 function M.install_hooks()
   local path = vim.fs.joinpath(vim.fn.getcwd(), ".claude", "settings.local.json")
   local settings = {}
-  local ok, lines = pcall(vim.fn.readfile, path)
+  local ok, content = pcall(function()
+    return Path:new(path):read()
+  end)
   if ok then
-    local dok, decoded = pcall(vim.json.decode, table.concat(lines, "\n"))
+    local dok, decoded = pcall(vim.json.decode, content)
     if dok then
       settings = decoded
     end
@@ -119,8 +124,9 @@ function M.install_hooks()
     end
   end
 
-  vim.fn.mkdir(vim.fs.dirname(path), "p")
-  vim.fn.writefile(vim.split(vim.json.encode(settings), "\n"), path)
+  local dir = Path:new(vim.fs.dirname(path))
+  dir:mkdir({ parents = true })
+  Path:new(path):write(vim.json.encode(settings), "w")
   vim.notify("clide: hooks installed to " .. path, vim.log.levels.INFO)
 end
 
