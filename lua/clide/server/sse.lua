@@ -110,13 +110,33 @@ function M.start(opts)
         buf = "" -- reset buffer
 
         if req.path == "/sse" then
-          -- Streamable HTTP tries POST first; reject to force old HTTP+SSE
-          if req.method ~= "GET" then
-            pcall(
-              client.write,
-              client,
-              "HTTP/1.1 405 Method Not Allowed\r\nAllow: GET\r\nContent-Length: 0\r\n\r\n"
-            )
+          -- Streamable HTTP: POST with JSON-RPC, respond inline with SSE
+          if req.method == "POST" then
+            local body = req.rest:sub(1, req.content_length)
+            local ok, msg = pcall(vim.json.decode, body)
+            if not ok or type(msg) ~= "table" then
+              pcall(client.write, client, "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
+              pcall(client.close, client)
+              return
+            end
+            -- Process JSON-RPC inline, capture response
+            local response_text
+            local rpc = require("clide.server.rpc")
+            local inline_rpc = rpc.new(function(text)
+              response_text = text
+            end)
+            inline_rpc:handle(body)
+            if response_text then
+              local frame = "event: message\r\ndata: " .. response_text .. "\r\n\r\n"
+              pcall(
+                client.write,
+                client,
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n" .. frame
+              )
+            else
+              -- notification or deferred — ack and close
+              pcall(client.write, client, "HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\n\r\n")
+            end
             pcall(client.close, client)
             return
           end

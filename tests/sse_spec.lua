@@ -164,7 +164,7 @@ describe("MCP config", function()
     tools.setup()
   end)
 
-  it("writes settings.local.json with clide SSE URL", function()
+  it("writes .mcp.json with clide SSE URL and auto-approves in settings", function()
     local tmpdir = vim.fn.tempname() .. "_clide_mcp"
     vim.fn.mkdir(tmpdir)
     local original_cwd = vim.fn.getcwd()
@@ -173,14 +173,20 @@ describe("MCP config", function()
 
     mcp_config.install(12345)
 
-    local raw = table.concat(vim.fn.readfile(".claude/settings.local.json"), "\n")
+    -- MCP server config in .mcp.json
+    local raw = table.concat(vim.fn.readfile(".mcp.json"), "\n")
     local data = vim.json.decode(raw)
     assert.equals("sse", data.mcpServers.clide.type)
     assert.equals("http://127.0.0.1:12345/sse", data.mcpServers.clide.url)
 
+    -- Auto-approval in settings.local.json
+    local settings =
+      vim.json.decode(require("plenary.path"):new(".claude/settings.local.json"):read())
+    assert.equals("clide", settings.enabledMcpjsonServers[1])
+
     -- Idempotent: second call doesn't corrupt
     mcp_config.install(12346)
-    local raw2 = table.concat(vim.fn.readfile(".claude/settings.local.json"), "\n")
+    local raw2 = table.concat(vim.fn.readfile(".mcp.json"), "\n")
     local data2 = vim.json.decode(raw2)
     assert.equals("http://127.0.0.1:12346/sse", data2.mcpServers.clide.url)
 
@@ -188,20 +194,19 @@ describe("MCP config", function()
     vim.fn.delete(tmpdir, "rf")
   end)
 
-  it("preserves existing settings keys when merging", function()
+  it("preserves existing .mcp.json keys when merging", function()
     local tmpdir = vim.fn.tempname() .. "_clide_mcp2"
     vim.fn.mkdir(tmpdir)
     local original_cwd = vim.fn.getcwd()
     vim.fn.chdir(tmpdir)
     vim.fn.mkdir(".claude", "p")
 
-    -- Pre-populate with some other setting
-    local existing = { otherKey = "value", mcpServers = { other_server = { type = "stdio" } } }
-    require("plenary.path"):new(".claude/settings.local.json"):write(vim.json.encode(existing), "w")
+    -- Pre-populate .mcp.json with another server
+    local existing = { mcpServers = { other_server = { type = "stdio" } } }
+    require("plenary.path"):new(".mcp.json"):write(vim.json.encode(existing), "w")
 
     mcp_config.install(9999)
-    local data = vim.json.decode(require("plenary.path"):new(".claude/settings.local.json"):read())
-    assert.equals("value", data.otherKey)
+    local data = vim.json.decode(require("plenary.path"):new(".mcp.json"):read())
     assert.equals("stdio", data.mcpServers.other_server.type)
     assert.equals("sse", data.mcpServers.clide.type)
 
