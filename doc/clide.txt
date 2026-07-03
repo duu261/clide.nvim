@@ -1,0 +1,76 @@
+*clide.txt*  Claude Code in Neovim — pure Lua, inline per-hunk review
+
+==============================================================================
+CONTENTS                                                        *clide-contents*
+
+  1. Introduction ......................... |clide-introduction|
+  2. Requirements ......................... |clide-requirements|
+  3. Setup ................................ |clide-setup|
+  4. Commands ............................. |clide-commands|
+  5. Review keymaps ....................... |clide-review|
+  6. Terminal providers ................... |clide-providers|
+  7. Statusline ........................... |clide-statusline|
+
+==============================================================================
+1. INTRODUCTION                                             *clide-introduction*
+
+clide.nvim implements the Claude Code IDE protocol (WebSocket-MCP) in pure
+Lua. Edits proposed by Claude render as inline hunks in your buffers with
+per-hunk accept/reject.
+
+==============================================================================
+2. REQUIREMENTS                                             *clide-requirements*
+
+- Neovim >= 0.10
+- `claude` CLI in PATH
+
+==============================================================================
+3. SETUP                                                           *clide-setup*
+
+>lua
+  require("clide").setup({})
+<
+
+See README.md for all options and defaults.
+
+==============================================================================
+4. COMMANDS                                                     *clide-commands*
+
+:ClideStart          Start server, write lock file, launch claude.
+:ClideStop           Stop server, remove lock file.
+:ClideToggle         Toggle the claude terminal (starts if stopped).
+:{range}ClideSend    At-mention the range in Claude's context.
+:ClideReviewTab      Reopen the current inline review as a diff tab.
+:ClideInstallHooks   Install status hooks into .claude/settings.local.json.
+:ClideLog            Show the log ring buffer.
+
+==============================================================================
+5. REVIEW KEYMAPS                                                 *clide-review*
+
+Active while a review has pending hunks (buffer-local, configurable):
+
+  ga    accept hunk under/near cursor
+  gr    reject hunk
+  gA    accept all hunks in buffer
+  gR    reject all hunks in buffer
+  ]h    next pending hunk (crosses files)
+  [h    previous pending hunk
+
+==============================================================================
+6. TERMINAL PROVIDERS                                          *clide-providers*
+
+auto (default) resolves: tmux (inside $TMUX) > snacks.nvim (if installed)
+> native |:terminal|. Set terminal.provider to force one, or "none" to run
+claude yourself with the env vars clide prints.
+
+==============================================================================
+7. STATUSLINE                                                 *clide-statusline*
+
+>lua
+  require("clide.status").lualine
+<
+
+States: working, waiting, idle, disconnected — driven by Claude Code hooks
+(run :ClideInstallHooks once per project). Includes pending review count.
+
+vim:tw=78:ts=8:ft=help:norl:

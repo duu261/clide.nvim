@@ -79,11 +79,13 @@ describe("integration: full protocol flow", function()
     assert.is_true(handshake_done)
 
     -- initialize
-    sock:write(client_frame(
-      '{"jsonrpc":"2.0","id":1,"method":"initialize","params":'
-        .. '{"protocolVersion":"2025-03-26","capabilities":{},'
-        .. '"clientInfo":{"name":"test","version":"0"}}}'
-    ))
+    sock:write(
+      client_frame(
+        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":'
+          .. '{"protocolVersion":"2025-03-26","capabilities":{},'
+          .. '"clientInfo":{"name":"test","version":"0"}}}'
+      )
+    )
     vim.wait(2000, function()
       return #received >= 1
     end)
@@ -100,19 +102,29 @@ describe("integration: full protocol flow", function()
       names[t.name] = true
     end
     for _, expected in ipairs({
-      "openFile", "openDiff", "getCurrentSelection", "getLatestSelection",
-      "getOpenEditors", "getWorkspaceFolders", "getDiagnostics",
-      "checkDocumentDirty", "saveDocument", "close_tab",
-      "closeAllDiffTabs", "executeCode",
+      "openFile",
+      "openDiff",
+      "getCurrentSelection",
+      "getLatestSelection",
+      "getOpenEditors",
+      "getWorkspaceFolders",
+      "getDiagnostics",
+      "checkDocumentDirty",
+      "saveDocument",
+      "close_tab",
+      "closeAllDiffTabs",
+      "executeCode",
     }) do
       assert.is_true(names[expected] == true, "missing tool: " .. expected)
     end
 
     -- tools/call round trip
-    sock:write(client_frame(
-      '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":'
-        .. '{"name":"getWorkspaceFolders","arguments":{}}}'
-    ))
+    sock:write(
+      client_frame(
+        '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":'
+          .. '{"name":"getWorkspaceFolders","arguments":{}}}'
+      )
+    )
     vim.wait(2000, function()
       return #received >= 3
     end)
