@@ -13,8 +13,10 @@ end
 
 function M.start()
   if M.state.server then
-    return -- already running
+    vim.notify("clide: already running", vim.log.levels.INFO)
+    return
   end
+  vim.notify("clide: starting server...", vim.log.levels.INFO)
 
   local config = require("clide.config")
   local tools = require("clide.tools")
@@ -72,6 +74,7 @@ function M.start()
 
   M.state.server = server
   M.state.rpc = rpc
+  vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
 
   -- Start SSE MCP server (non-fatal: WS continues if this fails)
   local sse_ok, sse_err = pcall(function()
@@ -109,6 +112,7 @@ function M.start()
     CLAUDE_CODE_SSE_PORT = tostring(server.port),
     ENABLE_IDE_INTEGRATION = "true",
   })
+  vim.notify("clide: Claude launched in terminal", vim.log.levels.INFO)
 end
 
 function M.stop()
