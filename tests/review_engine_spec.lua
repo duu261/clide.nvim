@@ -80,6 +80,18 @@ describe("review engine", function()
     assert.same({ "AAA", "bbb", "ccc" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 
+  it("accepting all hunks leaves buffer unmodified (no W12 on CLI write)", function()
+    local buf = make_buf({ "keep", "old" })
+    vim.bo[buf].modified = false -- simulate freshly loaded buffer
+    local review = engine.open({
+      new_file_path = vim.api.nvim_buf_get_name(buf),
+      new_file_contents = "keep\nnew\n",
+      tab_name = "t-w12",
+    }, function() end)
+    engine.resolve_all(review, "accept")
+    assert.is_false(vim.bo[buf].modified)
+  end)
+
   it("handles pure insertion at top of file", function()
     local buf = make_buf({ "body" })
     local review = engine.open({

@@ -190,7 +190,14 @@ tools.register({
     for _, name in ipairs(names) do
       M.finish(name, "reject")
     end
-    return tools.text_result("CLOSED_" .. #names .. "_DIFF_TABS")
+    -- Inline reviews are diff tabs too: CLI sends this after a terminal-side
+    -- accept/interrupt, so sweep the queue or reviews orphan (stuck count).
+    local engine = require("clide.review.engine")
+    local inline = require("clide.review.queue").all()
+    for _, review in ipairs(inline) do
+      engine.resolve_all(review, "reject")
+    end
+    return tools.text_result("CLOSED_" .. (#names + #inline) .. "_DIFF_TABS")
   end,
 })
 

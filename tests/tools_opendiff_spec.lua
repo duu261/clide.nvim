@@ -76,6 +76,57 @@ describe("openDiff classic", function()
     vim.fn.delete(tmp)
   end)
 
+  it("closeAllDiffTabs sweeps pending inline reviews", function()
+    require("clide.config").setup({ review = { inline = true } })
+    local tmp = vim.fn.tempname() .. ".txt"
+    vim.fn.writefile({ "old" }, tmp)
+    local response
+    tools.call("openDiff", {
+      old_file_path = tmp,
+      new_file_path = tmp,
+      new_file_contents = "new\n",
+      tab_name = "inline-sweep",
+    }, function(r, e)
+      response = { result = r, err = e }
+    end)
+    local queue = require("clide.review.queue")
+    local _, total = queue.counts()
+    assert.equals(1, total)
+    local result
+    tools.call("closeAllDiffTabs", {}, function(r)
+      result = r
+    end)
+    assert.equals("CLOSED_1_DIFF_TABS", result.content[1].text)
+    assert.equals("DIFF_REJECTED", response.result.content[1].text)
+    _, total = queue.counts()
+    assert.equals(0, total)
+    vim.fn.delete(tmp)
+  end)
+
+  it("close_tab sweeps a matching inline review", function()
+    require("clide.config").setup({ review = { inline = true } })
+    local tmp = vim.fn.tempname() .. ".txt"
+    vim.fn.writefile({ "old" }, tmp)
+    local response
+    tools.call("openDiff", {
+      old_file_path = tmp,
+      new_file_path = tmp,
+      new_file_contents = "new\n",
+      tab_name = "inline-close",
+    }, function(r, e)
+      response = { result = r, err = e }
+    end)
+    local result
+    tools.call("close_tab", { tab_name = "inline-close" }, function(r)
+      result = r
+    end)
+    assert.equals("TAB_CLOSED", result.content[1].text)
+    assert.equals("DIFF_REJECTED", response.result.content[1].text)
+    local _, total = require("clide.review.queue").counts()
+    assert.equals(0, total)
+    vim.fn.delete(tmp)
+  end)
+
   it("double-finish does not double-respond", function()
     local tmp, response = call_diff("y\n")
     local open_diff_module = require("clide.tools.open_diff")

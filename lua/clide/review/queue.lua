@@ -37,6 +37,11 @@ function M.remove(review)
   end
 end
 
+--- Shallow copy of all active reviews (safe to iterate while resolving).
+function M.all()
+  return vim.list_slice(reviews)
+end
+
 function M.find(tab_name)
   for _, r in ipairs(reviews) do
     if r.tab_name == tab_name then

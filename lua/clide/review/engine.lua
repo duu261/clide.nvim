@@ -155,6 +155,9 @@ function M.finish(review)
         { type = "text", text = final_content },
       },
     })
+    -- CLI writes this exact content to disk; mark clean so the mtime bump
+    -- autoreads silently instead of raising W12.
+    vim.bo[review.bufnr].modified = false
   else
     review.respond({
       content = {
