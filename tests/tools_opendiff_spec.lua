@@ -198,4 +198,17 @@ describe("openDiff classic", function()
     open_diff_module.finish("test-diff", "reject")
     vim.fn.delete(tmp)
   end)
+
+  it("open_classic creates vertical diff split", function()
+    local open_diff = require("clide.tools.open_diff")
+    open_diff.open_classic({
+      tab_name = "classic-test",
+      new_path = vim.fn.tempname() .. ".lua",
+      new_contents = "local a = 1",
+      respond = function() end,
+    })
+    vim.wait(200)
+    local wins = vim.fn.getwininfo()
+    assert.is_true(#wins >= 2, "open_classic should create 2+ windows")
+  end)
 end)
