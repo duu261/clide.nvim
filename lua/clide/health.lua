@@ -11,6 +11,12 @@ function M.check()
     health.error("Neovim 0.10+ required (vim.getregion, vim.base64)")
   end
 
+  if pcall(require, "plenary.path") then
+    health.ok("plenary.nvim found")
+  else
+    health.error("plenary.nvim not found", { "install nvim-lua/plenary.nvim" })
+  end
+
   if vim.fn.executable("claude") == 1 then
     health.ok("claude binary found: " .. vim.fn.exepath("claude"))
   else

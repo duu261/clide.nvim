@@ -23,6 +23,7 @@ per-hunk accept/reject.
 
 - Neovim >= 0.10
 - `claude` CLI in PATH
+- nvim-lua/plenary.nvim
 
 ==============================================================================
 3. SETUP                                                           *clide-setup*

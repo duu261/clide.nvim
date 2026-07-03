@@ -10,7 +10,7 @@ diff tab.
 
 ## Features
 
-- **Zero runtime dependencies** — Neovim >= 0.10 and the `claude` CLI. No Node, no Rust.
+- **Minimal dependencies** — Neovim >= 0.10, the `claude` CLI, and plenary.nvim. No Node, no Rust.
 - **Full protocol parity** — lock-file discovery, auth, all 12 MCP tools,
   selection tracking, `@`-mentions.
 - **Inline review** — per-hunk accept/reject with extmark-anchored hunks that
@@ -28,6 +28,7 @@ lazy.nvim:
   "OWNER/clide.nvim",
   opts = {},
   cmd = { "ClideStart", "ClideToggle" },
+  dependencies = { "nvim-lua/plenary.nvim" },
 },
 ```
 
