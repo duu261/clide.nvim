@@ -76,6 +76,9 @@ function M.start(opts)
   handle:listen(128, function(err)
     if err then
       log.log("error", "listen error: " .. tostring(err))
+      vim.schedule(function()
+        vim.notify("clide: SSE server listen failed — " .. tostring(err), vim.log.levels.ERROR)
+      end)
       return
     end
     local ok, aerr = pcall(function()
