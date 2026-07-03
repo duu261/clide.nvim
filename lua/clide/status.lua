@@ -2,7 +2,6 @@ local M = {}
 
 local Path = require("plenary.path")
 local watcher = nil
-local cached = nil
 
 -- ponytail: single state file — two Neovim instances sharing it will clash.
 -- Per-port state files if multi-session lands in v2.
@@ -23,13 +22,11 @@ end
 function M.setup()
   local dir = vim.fs.dirname(M.state_file())
   vim.fn.mkdir(dir, "p")
-  cached = read_state()
   watcher = vim.uv.new_fs_event()
   watcher:start(
     dir,
     {},
     vim.schedule_wrap(function()
-      cached = read_state()
       pcall(vim.cmd, "redrawstatus")
     end)
   )
@@ -41,7 +38,6 @@ function M.teardown()
     watcher:close()
     watcher = nil
   end
-  cached = nil
 end
 
 function M.get()

@@ -43,7 +43,7 @@ All available over both WS and SSE transports.
 - `close_tab` — Close tab by name
 - `closeAllDiffTabs` — Close all diff tabs
 
-## Tests — 101 passing, 0 failing
+## Tests — run `make test` for the live total (prints `TOTAL: N passed`)
 
 | Area | Tests | File |
 |------|-------|------|
@@ -61,9 +61,10 @@ All available over both WS and SSE transports.
 - snacks provider tests minimal (installed dep assumed)
 
 ## Quality
-- Luacheck: 0 warnings, 0 errors (55 files)
-- Stylua: formatted
-- CI: stable + nightly neovim, stylua check, luacheck
+- Luacheck: 0 warnings, 0 errors (only frame.lua's documented 143 shim ignore remains)
+- Stylua: clean (`stylua --check lua/ tests/`)
+- CI: stable+nightly matrix, runs stylua + luacheck on push. Green once local commits are pushed.
+- `make lint` mirrors CI (stylua + luacheck)
 - Dogfooded: session completed entirely through clide.nvim's own protocol
 
 ## Known gaps for next release
