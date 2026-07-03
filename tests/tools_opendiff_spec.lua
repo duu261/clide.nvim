@@ -35,6 +35,8 @@ describe("openDiff classic", function()
     }) do
       package.loaded["clide.tools." .. mod] = nil
     end
+    -- Disable inline mode to test classic openDiff
+    require("clide.config").setup({ review = { inline = false } })
     tools = require("clide.tools")
     tools.setup()
   end)

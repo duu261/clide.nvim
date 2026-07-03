@@ -98,6 +98,13 @@ function M.finish(tab_name, verdict)
   end
 end
 
+--- Open a classic diff tab directly (used by :ClideReviewTab).
+function M.open_classic(rec)
+  rec.done = false
+  M.active[rec.tab_name] = rec
+  open_tab(rec)
+end
+
 tools.register({
   name = "openDiff",
   description = "Open a diff view comparing a file with proposed new contents",
@@ -112,6 +119,10 @@ tools.register({
     required = { "old_file_path", "new_file_path", "new_file_contents", "tab_name" },
   },
   handler = function(args, respond)
+    if require("clide.config").get().review.inline then
+      require("clide.review.engine").open(args, respond)
+      return tools.DEFER
+    end
     local rec = {
       tab_name = args.tab_name,
       new_path = args.new_file_path,

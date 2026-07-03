@@ -46,7 +46,12 @@ function Dispatcher:handle(text)
     self:respond(msg.id, { tools = tools.list() })
   elseif msg.method == "tools/call" then
     local params = msg.params or {}
+    local responded = false
     tools.call(params.name, params.arguments or {}, function(result, err)
+      if responded then
+        return
+      end
+      responded = true
       self:respond(msg.id, result, err)
     end)
   elseif msg.id then
