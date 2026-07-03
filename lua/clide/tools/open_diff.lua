@@ -85,11 +85,21 @@ function M.finish(tab_name, verdict)
     if lines[#lines] == "" then
       table.remove(lines)
     end
-    vim.fn.writefile(lines, rec.new_path)
-    vim.cmd("silent! checktime")
-    rec.respond(tools.text_result("FILE_SAVED"))
+    local final_content = table.concat(lines, "\n")
+    -- Do NOT write the file; the Claude CLI will do that after receiving FILE_SAVED.
+    rec.respond({
+      content = {
+        { type = "text", text = "FILE_SAVED" },
+        { type = "text", text = final_content },
+      },
+    })
   else
-    rec.respond(tools.text_result("DIFF_REJECTED"))
+    rec.respond({
+      content = {
+        { type = "text", text = "DIFF_REJECTED" },
+        { type = "text", text = rec.tab_name },
+      },
+    })
   end
 
   if rec.tab and vim.api.nvim_tabpage_is_valid(rec.tab) and #vim.api.nvim_list_tabpages() > 1 then

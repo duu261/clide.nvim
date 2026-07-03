@@ -215,7 +215,9 @@ When `makeFrontmost=false`, returns detailed JSON:
 - `new_file_contents` (string): Contents of the new file
 - `tab_name` (string): Tab name for the diff view
 
-**Output**: Returns MCP-formatted response:
+**Output**: Returns MCP-formatted response with two content blocks.
+
+When user accepts the diff:
 
 ```json
 {
@@ -223,12 +225,16 @@ When `makeFrontmost=false`, returns detailed JSON:
     {
       "type": "text",
       "text": "FILE_SAVED"
+    },
+    {
+      "type": "text",
+      "text": "// Full file contents after applying the diff..."
     }
   ]
 }
 ```
 
-or
+When user rejects the diff:
 
 ```json
 {
@@ -236,12 +242,17 @@ or
     {
       "type": "text",
       "text": "DIFF_REJECTED"
+    },
+    {
+      "type": "text",
+      "text": "Proposed changes"
     }
   ]
 }
 ```
 
-Based on whether the user saves or rejects the diff.
+- `FILE_SAVED` response includes the full file contents as the second block. The IDE must not write the file to disk; the Claude CLI will perform the file write after receiving this response.
+- `DIFF_REJECTED` response includes the `tab_name` as the second block.
 
 ### 3. getCurrentSelection
 

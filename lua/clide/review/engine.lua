@@ -1,4 +1,3 @@
-local tools = require("clide.tools")
 local render = require("clide.review.render")
 local queue = require("clide.review.queue")
 
@@ -41,7 +40,15 @@ function M.open(args, respond)
   local hunks = M.compute_hunks(old_lines, new_lines)
 
   if #hunks == 0 then
-    respond(tools.text_result("FILE_SAVED"))
+    -- Content is identical; respond with current buffer content
+    local buffer_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local final_content = table.concat(buffer_lines, "\n")
+    respond({
+      content = {
+        { type = "text", text = "FILE_SAVED" },
+        { type = "text", text = final_content },
+      },
+    })
     return nil
   end
 
@@ -130,12 +137,23 @@ function M.finish(review)
   review.done = true
 
   if review.accepted > 0 then
-    vim.api.nvim_buf_call(review.bufnr, function()
-      vim.cmd("silent write")
-    end)
-    review.respond(tools.text_result("FILE_SAVED"))
+    -- Do NOT write the file; the Claude CLI will do that after receiving FILE_SAVED.
+    -- Get the current buffer content for the response.
+    local buffer_lines = vim.api.nvim_buf_get_lines(review.bufnr, 0, -1, false)
+    local final_content = table.concat(buffer_lines, "\n")
+    review.respond({
+      content = {
+        { type = "text", text = "FILE_SAVED" },
+        { type = "text", text = final_content },
+      },
+    })
   else
-    review.respond(tools.text_result("DIFF_REJECTED"))
+    review.respond({
+      content = {
+        { type = "text", text = "DIFF_REJECTED" },
+        { type = "text", text = review.tab_name },
+      },
+    })
   end
 
   render.detach(review)
