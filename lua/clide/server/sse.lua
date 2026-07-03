@@ -185,12 +185,12 @@ function M.start(opts)
             end
             local body = req.rest:sub(1, req.content_length)
             if opts.on_message then
-                -- Defer to main event loop so MCP tool handlers can call
-                -- Neovim API without hitting E5560 (fast event context).
-                vim.schedule(function()
-                  opts.on_message(body)
-                end)
-              end
+              -- Defer to main event loop so MCP tool handlers can call
+              -- Neovim API without hitting E5560 (fast event context).
+              vim.schedule(function()
+                opts.on_message(body)
+              end)
+            end
             pcall(client.write, client, "HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\n\r\n")
           else
             pcall(client.write, client, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")

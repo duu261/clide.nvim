@@ -51,7 +51,10 @@ function M.setup()
       return
     end
     require("clide.mcp_config").install(state.sse_server.port)
-    vim.notify("clide: MCP config written to .mcp.json + .claude/settings.local.json", vim.log.levels.INFO)
+    vim.notify(
+      "clide: MCP config written to .mcp.json + .claude/settings.local.json",
+      vim.log.levels.INFO
+    )
   end, { desc = "Write clide MCP server config for Claude Code" })
 end
 
