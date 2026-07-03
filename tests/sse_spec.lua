@@ -110,7 +110,7 @@ describe("SSE server", function()
     local data = raw:match("event: message\r\ndata: (.-)\r\n\r\n")
     assert.is_not_nil(data)
     local result = vim.json.decode(data)
-    assert.equals(12, #result.result.tools)
+    assert.equals(14, #result.result.tools)
 
     sock:close()
     sse.stop(server)

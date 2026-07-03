@@ -1,10 +1,7 @@
 local tools = require("clide.tools")
 
--- Lua 5.1/JIT compat: loadstring deprecated in 5.4 but that's not our runtime
-local load = loadstring or load
-
 tools.register({
-  name = "executeCode",
+  name = "luaEval",
   description = "Evaluate Lua code in the Neovim instance",
   inputSchema = {
     type = "object",
@@ -12,9 +9,9 @@ tools.register({
     required = { "code" },
   },
   handler = function(args)
-    local fn, err = load("return " .. args.code)
+    local fn, err = loadstring("return " .. args.code)
     if not fn then
-      fn, err = load(args.code)
+      fn, err = loadstring(args.code)
     end
     if not fn then
       return tools.json_result({ success = false, error = err })

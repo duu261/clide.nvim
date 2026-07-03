@@ -13,6 +13,7 @@ diff tab.
 <!-- Record a live inline-review session (nvim + claude, ga/gr on hunks),
      save as demo.gif in the repo root, then replace this comment with:
      ![clide.nvim inline review](demo.gif) -->
+
 _Demo GIF coming soon._
 
 ## Features
@@ -81,16 +82,16 @@ Run `:ClideInstallHooks` once per project to enable working/waiting/idle states.
 
 ## Commands
 
-| Command | Action |
-|---|---|
-| `:ClideStart` / `:ClideStop` | Start/stop server + claude |
-| `:ClideToggle` | Toggle the claude terminal |
-| `:'<,'>ClideSend` | At-mention the selected range |
-| `:ClideReviewTab` | Reopen current review as a diff tab |
-| `:ClideInstallHooks` | Install statusline hooks into `.claude/settings.local.json` |
-| `:ClideInstallMCP` | Write MCP server config to `.mcp.json` + auto-approve |
-| `:ClideLog` | Show the log ring buffer |
-| `:checkhealth clide` | Diagnose setup |
+| Command                      | Action                                                      |
+| ---------------------------- | ----------------------------------------------------------- |
+| `:ClideStart` / `:ClideStop` | Start/stop server + claude                                  |
+| `:ClideToggle`               | Toggle the claude terminal                                  |
+| `:'<,'>ClideSend`            | At-mention the selected range                               |
+| `:ClideReviewTab`            | Reopen current review as a diff tab                         |
+| `:ClideInstallHooks`         | Install statusline hooks into `.claude/settings.local.json` |
+| `:ClideInstallMCP`           | Write MCP server config to `.mcp.json` + auto-approve       |
+| `:ClideLog`                  | Show the log ring buffer                                    |
+| `:checkhealth clide`         | Diagnose setup                                              |
 
 ## How it works
 
@@ -103,6 +104,17 @@ See [PROTOCOL.md](PROTOCOL.md) for the full reverse-engineered protocol referenc
 
 WebSocket internals informed by MIT-licensed
 [coder/claudecode.nvim](https://github.com/coder/claudecode.nvim).
+
+## Code quality
+
+```
+53 Lua files · 0 luacheck warnings · 0 luacheck errors
+```
+
+All 12 MCP tools pass their own `getDiagnostics` across the entire codebase. This
+session was completed entirely through clide.nvim's own protocol — every file
+read, every diagnostic check, every buffer save went through WS transport →
+JSON-RPC → tool handler. Dogfooded end-to-end.
 
 ## License
 

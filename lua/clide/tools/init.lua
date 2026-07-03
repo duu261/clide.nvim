@@ -69,6 +69,8 @@ function M.setup()
     "documents",
     "tabs",
     "execute_code",
+    "lua_eval",
+    "vim_edit",
   }) do
     require("clide.tools." .. mod)
   end
