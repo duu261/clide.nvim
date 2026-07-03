@@ -27,6 +27,11 @@ describe("simple tools", function()
       "documents",
       "tabs",
       "execute_code",
+      "vim_edit",
+      "lua_eval",
+      "search",
+      "grep",
+      "diagnose",
     }) do
       package.loaded["clide.tools." .. mod] = nil
     end

@@ -10,7 +10,7 @@ MCP) with inline per-hunk review.
 | WebSocket | IDE protocol (claude CLI) | Lock file | CSPRNG hex token |
 | SSE | MCP server (.mcp.json) | Dynamic | Session ID |
 
-## Tools (14)
+## Tools (17)
 
 All available over both WS and SSE transports.
 
@@ -31,6 +31,13 @@ All available over both WS and SSE transports.
 ### Code execution
 - `executeCode` — Evaluate Lua in Neovim
 - `luaEval` — Alias for executeCode
+
+### Search
+- `vim_search` — Search current buffer with Vim regex
+- `vim_grep` — Project-wide grep via quickfix list
+
+### Diagnostics
+- `diagnose` — Check clide setup (Neovim, claude, plenary)
 
 ### Navigation
 - `close_tab` — Close tab by name

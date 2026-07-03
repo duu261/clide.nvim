@@ -71,6 +71,9 @@ function M.setup()
     "execute_code",
     "lua_eval",
     "vim_edit",
+    "search",
+    "grep",
+    "diagnose",
   }) do
     require("clide.tools." .. mod)
   end
