@@ -5,10 +5,25 @@ local M = {}
 --- tab_name -> { new_path, new_contents, respond, tab, scratch_buf, done }
 M.active = {}
 
+--- Append linematch:60 to diffopt if not already present
+local function ensure_diffopt_linematch()
+  local diffopt = vim.o.diffopt
+  if not diffopt:find("linematch:60", 1, true) then
+    vim.o.diffopt = diffopt .. ",linematch:60"
+  end
+end
+
 local function open_tab(rec)
   vim.cmd("tabnew " .. vim.fn.fnameescape(rec.new_path))
   rec.tab = vim.api.nvim_get_current_tabpage()
   vim.cmd("diffthis")
+
+  -- Ensure linematch:60 is in diffopt (guard against duplicates)
+  ensure_diffopt_linematch()
+
+  -- Set winhighlight on the original window
+  local orig_winid = vim.api.nvim_get_current_win()
+  vim.wo[orig_winid].winhighlight = "Normal:Normal,NormalNC:Normal"
 
   vim.cmd("vnew")
   local scratch = vim.api.nvim_get_current_buf()
@@ -23,6 +38,10 @@ local function open_tab(rec)
   vim.api.nvim_buf_set_lines(scratch, 0, -1, false, lines)
   vim.bo[scratch].modified = false
   vim.cmd("diffthis")
+
+  -- Set winhighlight on the scratch (new) window
+  local scratch_winid = vim.api.nvim_get_current_win()
+  vim.wo[scratch_winid].winhighlight = "Normal:Normal,NormalNC:Normal"
 
   local group =
     vim.api.nvim_create_augroup("ClideDiff_" .. rec.tab_name:gsub("%W", "_"), { clear = true })

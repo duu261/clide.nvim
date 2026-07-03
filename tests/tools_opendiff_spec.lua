@@ -86,4 +86,65 @@ describe("openDiff classic", function()
     assert.equals("DIFF_REJECTED", response().result.content[1].text)
     vim.fn.delete(tmp)
   end)
+
+  it("appends linematch:60 to diffopt when opening diff", function()
+    local tmp, _ = call_diff("new content\n")
+
+    -- Check that linematch:60 is in diffopt
+    local diffopt_str = vim.o.diffopt
+    assert.match("linematch:60", diffopt_str)
+
+    -- Restore for cleanup
+    vim.fn.delete(tmp)
+  end)
+
+  it("guards against duplicate linematch:60 in diffopt", function()
+    local tmp, _ = call_diff("first diff\n")
+    local open_diff_module = require("clide.tools.open_diff")
+    open_diff_module.finish("test-diff", "reject")
+    vim.fn.delete(tmp)
+
+    -- Open a second diff
+    local tmp2, _ = call_diff("second diff\n")
+    local diffopt_str = vim.o.diffopt
+
+    -- Count occurrences of linematch:60
+    local count = 0
+    for _ in diffopt_str:gmatch("linematch:60") do
+      count = count + 1
+    end
+    assert.equals(1, count)
+
+    open_diff_module.finish("test-diff", "reject")
+    vim.fn.delete(tmp2)
+  end)
+
+  it("uses vertical split layout for diff windows", function()
+    local tmp, _ = call_diff("vertical split test\n")
+
+    -- Check window layout is vertical (should be 'row' type in winlayout)
+    local layout = vim.fn.winlayout()
+    -- layout[1] is the type, for vertical splits (side-by-side) it should be 'row'
+    assert.equals("row", layout[1])
+
+    local open_diff_module = require("clide.tools.open_diff")
+    open_diff_module.finish("test-diff", "reject")
+    vim.fn.delete(tmp)
+  end)
+
+  it("sets winhighlight on diff windows", function()
+    local tmp, _ = call_diff("winhighlight test\n")
+
+    -- Get current window (scratch buffer)
+    local scratch_winid = vim.api.nvim_get_current_win()
+
+    -- Check that winhighlight is set
+    local winhighlight = vim.wo[scratch_winid].winhighlight
+    assert.is_not_nil(winhighlight)
+    assert.is_not_equal("", winhighlight)
+
+    local open_diff_module = require("clide.tools.open_diff")
+    open_diff_module.finish("test-diff", "reject")
+    vim.fn.delete(tmp)
+  end)
 end)
