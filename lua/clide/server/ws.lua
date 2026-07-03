@@ -34,6 +34,9 @@ function M.start(opts)
   handle:listen(16, function(err)
     if err then
       log.log("error", "listen error: " .. err)
+      vim.schedule(function()
+        vim.notify("clide: WS server listen failed — " .. err, vim.log.levels.ERROR)
+      end)
       return
     end
     local ok, aerr = pcall(function()
@@ -55,6 +58,9 @@ function M.start(opts)
     end)
     if not ok then
       log.log("error", "accept error: " .. tostring(aerr))
+      vim.schedule(function()
+        vim.notify("clide: WS accept failed — " .. tostring(aerr), vim.log.levels.WARN)
+      end)
     end
   end)
 
@@ -70,6 +76,9 @@ function M.process(server, client)
     if not req then
       if #client.buf > MAX_HANDSHAKE_SIZE then
         log.log("error", "handshake request too large")
+        vim.schedule(function()
+          vim.notify("clide: WS handshake too large", vim.log.levels.WARN)
+        end)
         M.disconnect(server, client)
       end
       return -- wait for more bytes
@@ -103,6 +112,9 @@ function M.process(server, client)
     if not f then
       if #client.buf > MAX_BUFFER_SIZE then
         log.log("error", "client buffer exceeded " .. MAX_BUFFER_SIZE .. " bytes")
+        vim.schedule(function()
+          vim.notify("clide: WS client buffer exceeded " .. MAX_BUFFER_SIZE .. " bytes", vim.log.levels.WARN)
+        end)
         M.disconnect(server, client)
       end
       return
@@ -114,6 +126,9 @@ function M.process(server, client)
           local ok, merr = pcall(server.opts.on_message, client, f.payload)
           if not ok then
             log.log("error", "on_message handler error: " .. tostring(merr))
+            vim.schedule(function()
+              vim.notify("clide: WS handler error — " .. tostring(merr), vim.log.levels.ERROR)
+            end)
           end
         end)
       end

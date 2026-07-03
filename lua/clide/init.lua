@@ -39,11 +39,17 @@ function M.start()
       M.state.client = client
       M.state.connected = true
       log.log("info", "claude connected")
+      vim.schedule(function()
+        vim.notify("clide: Claude connected", vim.log.levels.INFO)
+      end)
     end,
     on_disconnect = function()
       M.state.client = nil
       M.state.connected = false
       log.log("info", "claude disconnected")
+      vim.schedule(function()
+        vim.notify("clide: Claude disconnected", vim.log.levels.WARN)
+      end)
     end,
   })
   if not server then
