@@ -36,7 +36,20 @@ describe("ws server", function()
 
   it("binds a port in the protocol range", function()
     local server = assert(ws.start({ auth_token = "tok" }))
-    assert.is_true(server.port >= 10000 and server.port <= 65535)
+    assert.is_true(server.port >= 1024 and server.port <= 65535)
     ws.stop(server)
+  end)
+
+  it("assigns distinct ports without collision across many servers", function()
+    local servers, seen = {}, {}
+    for _ = 1, 20 do
+      local s = assert(ws.start({ auth_token = "tok" }), "bind should never fail")
+      assert.is_nil(seen[s.port], "duplicate port " .. tostring(s.port))
+      seen[s.port] = true
+      servers[#servers + 1] = s
+    end
+    for _, s in ipairs(servers) do
+      ws.stop(s)
+    end
   end)
 end)

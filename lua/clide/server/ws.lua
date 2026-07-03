@@ -9,24 +9,20 @@ local M = {}
 --- @return table|nil server {port, clients, handle}, string|nil err
 function M.start(opts)
   local server = { clients = {}, opts = opts }
-  local handle, port
-
-  for _ = 1, 5 do
-    local try = vim.uv.new_tcp()
-    -- port randomness is not security-relevant (the token is); math.random fine
-    local candidate = math.random(10000, 65535)
-    if try:bind("127.0.0.1", candidate) == 0 then
-      handle, port = try, candidate
-      break
-    end
-    try:close()
+  -- Bind port 0: the OS hands back a guaranteed-free ephemeral port, so there
+  -- is no candidate collision to retry (unseeded math.random used to flake here).
+  local handle = vim.uv.new_tcp()
+  local ok, bind_err = pcall(function()
+    assert(handle:bind("127.0.0.1", 0) == 0)
+  end)
+  if not ok then
+    handle:close()
+    return nil, "could not bind a port: " .. tostring(bind_err)
   end
-  if not handle then
-    return nil, "could not bind a port after 5 attempts"
-  end
+  local addr = handle:getsockname()
 
   server.handle = handle
-  server.port = port
+  server.port = addr.port
 
   handle:listen(16, function(err)
     if err then
