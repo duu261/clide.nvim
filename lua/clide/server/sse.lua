@@ -31,11 +31,14 @@ local function parse_http(buf)
 
   -- Headers
   local content_length = 0
+  local mcp_session_id = nil
   for line in header_text:gmatch("[^\r\n]+") do
     local key, val = line:match("^(.-): (.+)$")
     if key then
       if key:lower() == "content-length" then
         content_length = tonumber(val) or 0
+      elseif key:lower() == "mcp-session-id" then
+        mcp_session_id = val
       end
     end
   end
@@ -45,6 +48,7 @@ local function parse_http(buf)
     path = path,
     query = query,
     content_length = content_length,
+    mcp_session_id = mcp_session_id,
     rest = rest,
   }
 end
@@ -65,6 +69,7 @@ function M.start(opts)
     port = 0,
     sse_client = nil,
     session_id = nil,
+    streamable_session_id = nil,
     timer = nil,
   }
 
@@ -129,70 +134,129 @@ function M.start(opts)
           buf = "" -- reset buffer
 
           if req.path == "/sse" then
-            -- Reject non-GET to force legacy HTTP+SSE transport
-            if req.method ~= "GET" then
+            -- Reject methods other than GET and POST
+            if req.method ~= "GET" and req.method ~= "POST" then
               pcall(
                 client.write,
                 client,
-                "HTTP/1.1 405 Method Not Allowed\r\nAllow: GET\r\nContent-Length: 0\r\n\r\n"
+                "HTTP/1.1 405 Method Not Allowed\r\nAllow: GET, POST\r\nContent-Length: 0\r\n\r\n"
               )
               pcall(client.close, client)
               return
             end
-            -- SSE event stream
-            if server.sse_client then
-              pcall(server.sse_client.close, server.sse_client)
-            end
-            server.sse_client = client
-            local rand_bytes = vim.uv.random(4)
-            server.session_id = (
-              rand_bytes:gsub(".", function(c)
-                return string.format("%02x", string.byte(c))
-              end)
-            )
-
-            -- Stop existing keepalive timer
-            if server.timer then
-              server.timer:stop()
-            end
-
-            -- Send 200 + SSE headers
-            pcall(
-              client.write,
-              client,
-              "HTTP/1.1 200 OK\r\n"
-                .. "Content-Type: text/event-stream\r\n"
-                .. "Cache-Control: no-cache\r\n"
-                .. "Connection: keep-alive\r\n\r\n"
-            )
-
-            -- Send endpoint event
-            pcall(
-              client.write,
-              client,
-              "event: endpoint\r\n"
-                .. "data: http://127.0.0.1:"
-                .. server.port
-                .. "/message?sessionId="
-                .. server.session_id
-                .. "\r\n\r\n"
-            )
-
-            -- Keepalive timer (15s)
-            server.timer = vim.uv.new_timer()
-            server.timer:start(15000, 15000, function()
-              if server.sse_client then
-                local ok3 = pcall(function()
-                  server.sse_client:write(": keepalive\r\n\r\n")
+            if req.method == "POST" then
+              -- Streamable HTTP POST /sse
+              local body = req.rest:sub(1, req.content_length)
+              local ok, msg = pcall(vim.json.decode, body)
+              if not ok or type(msg) ~= "table" then
+                pcall(client.write, client, "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
+                pcall(client.close, client)
+                return
+              end
+              -- Session gate: initialize without header mints a new session
+              if
+                msg.method == "initialize" and (not req.mcp_session_id or req.mcp_session_id == "")
+              then
+                local rand_bytes = vim.uv.random(4)
+                server.streamable_session_id = rand_bytes:gsub(".", function(c)
+                  return string.format("%02x", string.byte(c))
                 end)
-                if not ok3 then
-                  server.sse_client = nil
-                  if server.timer then
-                    server.timer:stop()
-                  end
+              else
+                if
+                  not server.streamable_session_id
+                  or req.mcp_session_id ~= server.streamable_session_id
+                then
+                  pcall(
+                    client.write,
+                    client,
+                    "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n"
+                  )
+                  pcall(client.close, client)
+                  return
                 end
               end
-            end)
+              if opts.on_message then
+                local respond = function(json_text)
+                  local sid = server.streamable_session_id
+                  local n = #json_text
+                  pcall(
+                    client.write,
+                    client,
+                    "HTTP/1.1 200 OK\r\n"
+                      .. "Content-Type: application/json\r\n"
+                      .. "Mcp-Session-Id: "
+                      .. sid
+                      .. "\r\n"
+                      .. "Content-Length: "
+                      .. tostring(n)
+                      .. "\r\n\r\n"
+                      .. json_text
+                  )
+                  pcall(client.close, client)
+                end
+                -- Defer to main event loop so MCP tool handlers can call
+                -- Neovim API without hitting E5560 (fast event context).
+                vim.schedule(function()
+                  opts.on_message(body, respond)
+                end)
+              end
+              -- Keep connection open: respond closure writes response and closes
+            else
+              -- SSE event stream (GET)
+              if server.sse_client then
+                pcall(server.sse_client.close, server.sse_client)
+              end
+              server.sse_client = client
+              local rand_bytes = vim.uv.random(4)
+              server.session_id = (
+                rand_bytes:gsub(".", function(c)
+                  return string.format("%02x", string.byte(c))
+                end)
+              )
+
+              -- Stop existing keepalive timer
+              if server.timer then
+                server.timer:stop()
+              end
+
+              -- Send 200 + SSE headers
+              pcall(
+                client.write,
+                client,
+                "HTTP/1.1 200 OK\r\n"
+                  .. "Content-Type: text/event-stream\r\n"
+                  .. "Cache-Control: no-cache\r\n"
+                  .. "Connection: keep-alive\r\n\r\n"
+              )
+
+              -- Send endpoint event
+              pcall(
+                client.write,
+                client,
+                "event: endpoint\r\n"
+                  .. "data: http://127.0.0.1:"
+                  .. server.port
+                  .. "/message?sessionId="
+                  .. server.session_id
+                  .. "\r\n\r\n"
+              )
+
+              -- Keepalive timer (15s)
+              server.timer = vim.uv.new_timer()
+              server.timer:start(15000, 15000, function()
+                if server.sse_client then
+                  local ok3 = pcall(function()
+                    server.sse_client:write(": keepalive\r\n\r\n")
+                  end)
+                  if not ok3 then
+                    server.sse_client = nil
+                    if server.timer then
+                      server.timer:stop()
+                    end
+                  end
+                end
+              end)
+            end
           elseif req.path == "/message" then
             -- Parse sessionId from query
             local params = parse_query(req.query)

@@ -1,14 +1,15 @@
-# clide.nvim — v0.2.1
+# clide.nvim — v0.3.1
 
 Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WS + SSE
-MCP) with inline per-hunk review.
+MCP) with inline per-hunk review. Multi-session: multiple `claude` clients can
+connect to the same Neovim instance concurrently.
 
 ## Transports
 
 | Transport | Type | Port | Auth |
 |-----------|------|------|------|
-| WebSocket | IDE protocol (claude CLI) | Lock file | CSPRNG hex token |
-| SSE | MCP server (.mcp.json) | Dynamic | Session ID |
+| WebSocket | IDE protocol (claude CLI), multi-client | Lock file | CSPRNG hex token |
+| SSE | MCP server (.mcp.json), persistent headless child, GET /sse + POST /message (legacy) + POST /sse (Streamable HTTP) | Dynamic | Session ID |
 
 ## Tools (17)
 
@@ -47,7 +48,7 @@ All available over both WS and SSE transports.
 
 | Area | Tests | File |
 |------|-------|------|
-| Core protocol (WS, SSE, RPC, frame, handshake) | 20 | ws_spec, sse_spec, rpc_spec, frame_spec, handshake_spec |
+| Core protocol (WS, SSE, RPC, frame, handshake) | 25 | ws_spec, sse_spec, rpc_spec, frame_spec, handshake_spec |
 | Inline review (engine, queue, render) | 14 | review_engine_spec, review_queue_spec |
 | Terminal providers (none, native, tmux, snacks, dispatch) | 24 | terminal_spec |
 | Simple tools (workspace, editors, diag, docs, tabs, eval) | 8 | tools_simple_spec |
@@ -68,8 +69,9 @@ All available over both WS and SSE transports.
 - Dogfooded: session completed entirely through clide.nvim's own protocol
 
 ## Known gaps for next release
-- open_classic test minimal (window count only, no layout/buffer assertions) 
-- Terminal: skip tmux/snacks real-pane tests
+- open_classic test minimal (window count only, no layout/buffer assertions)
+- Terminal: skip tmux/snacks real-pane tests (deliberate — side effects, no real pane in headless CI)
+- Streamable HTTP POST /sse: single-session only (new `initialize` overwrites `streamable_session_id`, no concurrent MCP clients)
 
 ## Build history
 `.superpowers/sdd/progress.md` (gitignored, local only) — full task-level build log,

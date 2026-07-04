@@ -40,8 +40,11 @@ function M.run()
   tools.setup()
 
   M.server = sse.start({
-    on_message = function(text)
-      if M.rpc then
+    on_message = function(text, respond)
+      if respond then
+        local one_off = rpc_mod.new(respond)
+        one_off:handle(text)
+      elseif M.rpc then
         M.rpc:handle(text)
       end
     end,

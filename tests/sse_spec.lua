@@ -194,6 +194,390 @@ describe("SSE server", function()
     bad:close()
     sse.stop(server)
   end)
+
+  it("POST /sse initialize returns 200 with Mcp-Session-Id and protocolVersion", function()
+    local server = assert(sse.start({
+      on_message = function(text, respond)
+        local msg = vim.json.decode(text)
+        if msg.method == "initialize" then
+          respond(vim.json.encode({
+            jsonrpc = "2.0",
+            id = msg.id,
+            result = { protocolVersion = "2025-03-26" },
+          }))
+        end
+      end,
+    }))
+
+    local sock = vim.uv.new_tcp()
+    local raw = ""
+    sock:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock:read_start(function(_, data)
+        if data then
+          raw = raw .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 1,
+        method = "initialize",
+        params = {
+          protocolVersion = "2025-03-26",
+          clientInfo = { name = "test", version = "1.0.0" },
+        },
+      })
+      sock:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. body
+      )
+    end)
+
+    vim.wait(2000, function()
+      return raw:find("HTTP/1.1 200", 1, true) ~= nil
+    end)
+
+    assert.is_not_nil(raw:find("HTTP/1.1 200", 1, true))
+    local session_id = raw:match("Mcp%-Session%-Id: ([%w]+)")
+    assert.is_not_nil(session_id)
+
+    local json_body = raw:match("\r\n\r\n(.+)")
+    assert.is_not_nil(json_body)
+    local result = vim.json.decode(json_body)
+    assert.equals("2025-03-26", result.result.protocolVersion)
+
+    sock:close()
+    sse.stop(server)
+  end)
+
+  it("POST /sse tools/list with valid Mcp-Session-Id returns 200 with tools", function()
+    local server = assert(sse.start({
+      on_message = function(text, respond)
+        local msg = vim.json.decode(text)
+        if msg.method == "initialize" then
+          respond(vim.json.encode({
+            jsonrpc = "2.0",
+            id = msg.id,
+            result = { protocolVersion = "2025-03-26" },
+          }))
+        elseif msg.method == "tools/list" and respond then
+          respond(vim.json.encode({
+            jsonrpc = "2.0",
+            id = msg.id,
+            result = { tools = tools.list() },
+          }))
+        end
+      end,
+    }))
+
+    -- Step 1: initialize to get session id
+    local sock1 = vim.uv.new_tcp()
+    local raw1 = ""
+    sock1:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock1:read_start(function(_, data)
+        if data then
+          raw1 = raw1 .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 1,
+        method = "initialize",
+      })
+      sock1:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. body
+      )
+    end)
+    vim.wait(2000, function()
+      return raw1:find("HTTP/1.1 200", 1, true) ~= nil
+    end)
+    local session_id = raw1:match("Mcp%-Session%-Id: ([%w]+)")
+    assert.is_not_nil(session_id)
+    sock1:close()
+
+    -- Step 2: tools/list with the session id header
+    local sock2 = vim.uv.new_tcp()
+    local raw2 = ""
+    sock2:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock2:read_start(function(_, data)
+        if data then
+          raw2 = raw2 .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 2,
+        method = "tools/list",
+      })
+      sock2:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n"
+          .. "Mcp-Session-Id: "
+          .. session_id
+          .. "\r\n\r\n"
+          .. body
+      )
+    end)
+    vim.wait(2000, function()
+      return raw2:find("HTTP/1.1 200", 1, true) ~= nil
+    end)
+    assert.is_not_nil(raw2:find("HTTP/1.1 200", 1, true))
+
+    local json_body = raw2:match("\r\n\r\n(.+)")
+    assert.is_not_nil(json_body)
+    local result = vim.json.decode(json_body)
+    assert.is_not_nil(result.result.tools)
+    assert.equals(17, #result.result.tools)
+
+    sock2:close()
+    sse.stop(server)
+  end)
+
+  it("POST /sse tools/list without Mcp-Session-Id returns 401", function()
+    local server = assert(sse.start({
+      on_message = function(text, respond)
+        local msg = vim.json.decode(text)
+        if msg.method == "initialize" then
+          respond(vim.json.encode({
+            jsonrpc = "2.0",
+            id = msg.id,
+            result = { protocolVersion = "2025-03-26" },
+          }))
+        end
+      end,
+    }))
+
+    -- Initialize first to mint a session
+    local sock1 = vim.uv.new_tcp()
+    local raw1 = ""
+    sock1:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock1:read_start(function(_, data)
+        if data then
+          raw1 = raw1 .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 1,
+        method = "initialize",
+      })
+      sock1:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. body
+      )
+    end)
+    vim.wait(2000, function()
+      return raw1:find("HTTP/1.1 200", 1, true) ~= nil
+    end)
+    sock1:close()
+
+    -- Now send tools/list without Mcp-Session-Id (session exists → must 401)
+    local sock2 = vim.uv.new_tcp()
+    local raw2 = ""
+    sock2:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock2:read_start(function(_, data)
+        if data then
+          raw2 = raw2 .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 2,
+        method = "tools/list",
+      })
+      sock2:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. body
+      )
+    end)
+    vim.wait(2000, function()
+      return raw2:find("401", 1, true) ~= nil
+    end)
+    assert.is_not_nil(raw2:find("401 Unauthorized", 1, true))
+
+    sock2:close()
+    sse.stop(server)
+  end)
+
+  it("POST /sse tools/list with wrong Mcp-Session-Id returns 401", function()
+    local server = assert(sse.start({
+      on_message = function(text, respond)
+        local msg = vim.json.decode(text)
+        if msg.method == "initialize" then
+          respond(vim.json.encode({
+            jsonrpc = "2.0",
+            id = msg.id,
+            result = { protocolVersion = "2025-03-26" },
+          }))
+        end
+      end,
+    }))
+
+    -- Initialize first to mint a session
+    local sock1 = vim.uv.new_tcp()
+    local raw1 = ""
+    sock1:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock1:read_start(function(_, data)
+        if data then
+          raw1 = raw1 .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 1,
+        method = "initialize",
+      })
+      sock1:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. body
+      )
+    end)
+    vim.wait(2000, function()
+      return raw1:find("HTTP/1.1 200", 1, true) ~= nil
+    end)
+    sock1:close()
+
+    -- Now send tools/list with a wrong session id
+    local sock2 = vim.uv.new_tcp()
+    local raw2 = ""
+    sock2:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock2:read_start(function(_, data)
+        if data then
+          raw2 = raw2 .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 2,
+        method = "tools/list",
+      })
+      sock2:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n"
+          .. "Mcp-Session-Id: WRONGDEADBEEF\r\n\r\n"
+          .. body
+      )
+    end)
+    vim.wait(2000, function()
+      return raw2:find("401", 1, true) ~= nil
+    end)
+    assert.is_not_nil(raw2:find("401 Unauthorized", 1, true))
+
+    sock2:close()
+    sse.stop(server)
+  end)
+
+  it("POST /sse malformed JSON body returns 400 and server stays alive", function()
+    local server = assert(sse.start({
+      on_message = function(text, respond)
+        local msg = vim.json.decode(text)
+        if msg.method == "initialize" and respond then
+          respond(vim.json.encode({
+            jsonrpc = "2.0",
+            id = msg.id,
+            result = { protocolVersion = "2025-03-26" },
+          }))
+        end
+      end,
+    }))
+
+    -- Malformed body: send non-JSON content
+    local sock1 = vim.uv.new_tcp()
+    local raw1 = ""
+    sock1:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock1:read_start(function(_, data)
+        if data then
+          raw1 = raw1 .. data
+        end
+      end)
+      sock1:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: 13\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. "not valid json"
+      )
+    end)
+    vim.wait(2000, function()
+      return raw1:find("400", 1, true) ~= nil
+    end)
+    assert.is_not_nil(raw1:find("400 Bad Request", 1, true))
+    sock1:close()
+
+    -- Verify server still handles valid requests
+    local sock2 = vim.uv.new_tcp()
+    local raw2 = ""
+    sock2:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock2:read_start(function(_, data)
+        if data then
+          raw2 = raw2 .. data
+        end
+      end)
+      local body = vim.json.encode({
+        jsonrpc = "2.0",
+        id = 1,
+        method = "initialize",
+      })
+      sock2:write(
+        "POST /sse HTTP/1.1\r\n"
+          .. "Host: 127.0.0.1\r\n"
+          .. "Content-Length: "
+          .. #body
+          .. "\r\n"
+          .. "Content-Type: application/json\r\n\r\n"
+          .. body
+      )
+    end)
+    vim.wait(2000, function()
+      return raw2:find("HTTP/1.1 200", 1, true) ~= nil
+    end)
+    assert.is_not_nil(raw2:find("HTTP/1.1 200", 1, true))
+
+    sock2:close()
+    sse.stop(server)
+  end)
 end)
 
 describe("MCP config", function()

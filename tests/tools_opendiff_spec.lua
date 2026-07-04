@@ -199,7 +199,7 @@ describe("openDiff classic", function()
     vim.fn.delete(tmp)
   end)
 
-  it("open_classic creates vertical diff split", function()
+  it("open_classic creates vertical diff split with scratch buffer", function()
     local open_diff = require("clide.tools.open_diff")
     open_diff.open_classic({
       tab_name = "classic-test",
@@ -210,5 +210,25 @@ describe("openDiff classic", function()
     vim.wait(200)
     local wins = vim.fn.getwininfo()
     assert.is_true(#wins >= 2, "open_classic should create 2+ windows")
+    -- scratch buffer has buftype "acwrite" (marker set by open_tab)
+    local scratch_buf = open_diff.active["classic-test"].scratch_buf
+    assert.is_not_nil(scratch_buf)
+    assert.is_true(vim.api.nvim_buf_is_valid(scratch_buf))
+    assert.equals("acwrite", vim.bo[scratch_buf].buftype)
+    -- two windows in this tabpage
+    local tab_wins = vim.api.nvim_tabpage_list_wins(0)
+    assert.equals(2, #tab_wins)
+    -- the other window holds the original file buffer (buftype "")
+    local found_file_buf = false
+    for _, win in ipairs(tab_wins) do
+      local buf = vim.api.nvim_win_get_buf(win)
+      if buf ~= scratch_buf then
+        assert.equals("", vim.bo[buf].buftype)
+        found_file_buf = true
+      end
+    end
+    assert.is_true(found_file_buf, "should have a window with original file buffer")
+    -- layout is vertical (row = side-by-side)
+    assert.equals("row", vim.fn.winlayout()[1])
   end)
 end)
