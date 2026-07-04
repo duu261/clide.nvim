@@ -57,7 +57,6 @@ All available over both WS and SSE transports.
 | openFile, openDiff tools | ~19 | tools_openfile_spec, tools_opendiff_spec |
 
 ### Coverage gaps
-- open_classic test exists but is minimal (window count only, no layout/buffer assertions)
 - tmux provider tests skip actual pane creation (side effects)
 - snacks provider tests minimal (installed dep assumed)
 
@@ -69,7 +68,6 @@ All available over both WS and SSE transports.
 - Dogfooded: session completed entirely through clide.nvim's own protocol
 
 ## Known gaps for next release
-- open_classic test minimal (window count only, no layout/buffer assertions)
 - Terminal: skip tmux/snacks real-pane tests (deliberate — side effects, no real pane in headless CI)
 - Streamable HTTP POST /sse: single-session only (new `initialize` overwrites `streamable_session_id`, no concurrent MCP clients)
 
