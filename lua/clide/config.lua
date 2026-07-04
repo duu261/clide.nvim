@@ -29,8 +29,8 @@ local defaults = {
     start = "<Leader>ms",
     stop = "<Leader>mq",
     log = "<Leader>ml",
-    send = "<Leader>me",         -- visual mode: send selection
-    send_toggle = "<Leader>mz",  -- visual mode: send + toggle terminal
+    send = "<Leader>me", -- visual mode: send selection
+    send_toggle = "<Leader>mz", -- visual mode: send + toggle terminal
   },
 }
 

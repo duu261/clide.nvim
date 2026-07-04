@@ -194,7 +194,7 @@ function M.ensure_mcp_server()
         M.state.mcp_port = nil
         if code ~= 0 then
           local stderr_str = (type(signal_or_stderr) == "table" and #signal_or_stderr > 0)
-            and table.concat(signal_or_stderr, "\n")
+              and table.concat(signal_or_stderr, "\n")
             or nil
           local msg = "clide: MCP server exited (" .. code .. ")"
           if stderr_str then
