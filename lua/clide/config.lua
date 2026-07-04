@@ -2,6 +2,7 @@ local M = {}
 
 local defaults = {
   autostart = false,
+  sse_port = 42069,
   follow = false,
   auto_install_mcp = true,
   log_level = "info",

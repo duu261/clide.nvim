@@ -80,6 +80,7 @@ function M.start()
   local sse_ok, sse_err = pcall(function()
     local sse = require("clide.server.sse")
     local sse_server = sse.start({
+      port = config.get().sse_port,
       on_message = function(text)
         if M.state.sse_rpc then
           M.state.sse_rpc:handle(text)

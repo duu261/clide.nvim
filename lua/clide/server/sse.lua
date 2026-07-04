@@ -69,7 +69,12 @@ function M.start(opts)
   }
 
   local handle = vim.uv.new_tcp()
-  handle:bind("127.0.0.1", opts.port or 0)
+  local bind_ok, bind_err = pcall(handle.bind, handle, "127.0.0.1", opts.port or 0)
+  if not bind_ok then
+    handle:close()
+    log.log("error", "sse bind failed: " .. tostring(bind_err))
+    return nil
+  end
   server.handle = handle
   server.port = handle:getsockname().port
 
