@@ -97,7 +97,11 @@ function M.ensure_mcp_server()
   local lock_data = lockfile_mcp.read()
   if lock_data then
     local ok = pcall(function()
-      local chan = vim.fn.sockconnect("tcp", "127.0.0.1:" .. lock_data.ssePort, { mode = "json" })
+      local chan = vim.fn.sockconnect(
+        "tcp",
+        "127.0.0.1:" .. lock_data.ssePort,
+        { mode = "json", timeout = 50 }
+      )
       vim.fn.chanclose(chan)
     end)
     if ok then
