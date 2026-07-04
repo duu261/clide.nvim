@@ -138,22 +138,41 @@ function M.ensure_mcp_server()
   end
 
   local argv = { "nvim", "--headless", "-u", "NONE" }
+  -- Batch rtp entries into few --cmd calls (nvim has a ~20-60 cap on -c/--cmd args).
+  -- Comma-separated in one set rtp+= avoids blowing the limit.
+  local rtp_batch = {}
   for _, p in ipairs(vim.opt.rtp:get()) do
+    table.insert(rtp_batch, p)
+    if #rtp_batch >= 15 then
+      table.insert(argv, "--cmd")
+      table.insert(argv, "set rtp+=" .. table.concat(rtp_batch, ","))
+      rtp_batch = {}
+    end
+  end
+  if #rtp_batch > 0 then
     table.insert(argv, "--cmd")
-    table.insert(argv, ("set rtp+=%s"):format(p))
+    table.insert(argv, "set rtp+=" .. table.concat(rtp_batch, ","))
   end
   table.insert(argv, "-c")
   table.insert(argv, "lua require('clide.server.detached').run()")
 
   M.state.child_job = vim.fn.jobstart(argv, {
     stdin = "pipe",
-    on_exit = function(_, code)
+    stderr_buffered = true,
+    on_exit = function(_, code, signal_or_stderr)
       vim.schedule(function()
         lockfile_mcp.remove()
         M.state.child_job = nil
         M.state.mcp_port = nil
         if code ~= 0 then
-          vim.notify("clide: MCP server exited (" .. code .. ")", vim.log.levels.WARN)
+          local stderr_str = (type(signal_or_stderr) == "table" and #signal_or_stderr > 0)
+            and table.concat(signal_or_stderr, "\n")
+            or nil
+          local msg = "clide: MCP server exited (" .. code .. ")"
+          if stderr_str then
+            msg = msg .. "\n" .. stderr_str
+          end
+          vim.notify(msg, vim.log.levels.WARN)
         end
       end)
     end,
@@ -184,10 +203,9 @@ end
 
 function M.stop()
   if M.state.child_job then
-    local channel = vim.fn.jobgetchannel(M.state.child_job)
-    if channel then
-      pcall(vim.fn.chansend, channel, "DIE\n")
-    end
+    pcall(function()
+      vim.fn.chansend(vim.fn.jobgetchannel(M.state.child_job), "DIE\n")
+    end)
   end
 
   local state = M.state
