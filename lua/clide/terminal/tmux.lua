@@ -42,6 +42,9 @@ function M.open(cmd, env)
     return
   end
   pane_id = vim.trim(out.stdout)
+
+  local project = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
+  vim.system({ "tmux", "select-pane", "-T", "clide:" .. project, "-t", pane_id }):wait()
 end
 
 function M.close()
