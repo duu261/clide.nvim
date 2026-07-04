@@ -13,6 +13,7 @@ local defaults = {
   },
   review = {
     inline = true,
+    hint_line = true,
     keymaps = {
       accept = "ga",
       reject = "gr",

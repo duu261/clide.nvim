@@ -98,6 +98,32 @@ local function pending()
 end
 
 --- dir = 1 next, -1 prev. Crosses buffer boundaries, wraps around.
+--- Populate quickfix list with all pending hunks across all reviews.
+--- :copen to view, <CR> jumps to hunk location.
+function M.quickfix()
+  local items = pending()
+  local qf = {}
+  for _, item in ipairs(items) do
+    local path = vim.api.nvim_buf_get_name(item.review.bufnr)
+    local h = item.hunk
+    local summary = {}
+    if h.count_a > 0 then
+      table.insert(summary, "-" .. h.count_a)
+    end
+    if h.count_b > 0 then
+      table.insert(summary, "+" .. h.count_b)
+    end
+    table.insert(qf, {
+      filename = path,
+      lnum = item.row + 1,
+      col = 1,
+      text = table.concat(summary, " "),
+    })
+  end
+  vim.fn.setqflist({}, " ", { items = qf })
+  vim.cmd.copen()
+end
+
 function M.jump(dir)
   local items = pending()
   if #items == 0 then

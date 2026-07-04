@@ -129,6 +129,11 @@ function M.stop()
   M.state = {}
 end
 
+function M.restart()
+  M.stop()
+  vim.schedule(M.start)
+end
+
 function M.toggle()
   if M.state.server then
     require("clide.terminal").toggle({

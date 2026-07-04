@@ -9,6 +9,8 @@ function M.provider()
       name = "tmux"
     elseif require("clide.terminal.snacks").is_available() then
       name = "snacks"
+    elseif require("clide.terminal.toggleterm").is_available() then
+      name = "toggleterm"
     else
       name = "native"
     end

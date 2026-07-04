@@ -35,6 +35,25 @@ function M.check()
   else
     health.info("not inside tmux — native provider will be used for auto")
   end
+
+  local state = require("clide").state
+  if state.server then
+    health.ok("server running on port " .. state.server.port)
+  else
+    health.warn("server not running — :ClideStart to launch")
+  end
+
+  local mcp_path = ".mcp.json"
+  if vim.fn.filereadable(mcp_path) == 1 then
+    local lines = vim.fn.readfile(mcp_path)
+    if table.concat(lines):find("clide") then
+      health.ok(".mcp.json configured for clide")
+    else
+      health.warn(".mcp.json exists but missing clide config — run ClideInstallMCP")
+    end
+  else
+    health.warn(".mcp.json not found — run ClideInstallMCP")
+  end
 end
 
 return M

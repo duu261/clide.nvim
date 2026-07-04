@@ -8,7 +8,21 @@ vim.api.nvim_set_hl(0, "ClideAdded", { link = "DiffAdd", default = true })
 vim.api.nvim_set_hl(0, "ClideDeleted", { link = "DiffDelete", default = true })
 
 --- Place one extmark per hunk: virt_lines preview additions, hl marks deletions.
+function M.set_hint(review)
+  local keys = config.get().review.keymaps
+  local hint = ("clide review: %s accept  %s reject  %s all accept  %s all reject  %s next  %s prev")
+    :format(keys.accept, keys.reject, keys.accept_all, keys.reject_all, keys.next_hunk, keys.prev_hunk)
+  review.hint_extmark = vim.api.nvim_buf_set_extmark(review.bufnr, ns, 0, 0, {
+    virt_lines = { { { hint, "Comment" } } },
+    virt_lines_above = true,
+    priority = 200,
+  })
+end
+
 function M.attach(review)
+  if config.get().review.hint_line then
+    M.set_hint(review)
+  end
   for _, hunk in ipairs(review.hunks) do
     local row = math.max(hunk.start_a - 1, 0)
     local virt_lines = {}
@@ -48,6 +62,10 @@ end
 function M.detach(review)
   for _, hunk in ipairs(review.hunks) do
     M.clear_hunk(review, hunk)
+  end
+  if review.hint_extmark then
+    pcall(vim.api.nvim_buf_del_extmark, review.bufnr, ns, review.hint_extmark)
+    review.hint_extmark = nil
   end
   local keys = config.get().review.keymaps
   for _, lhs in ipairs({ keys.accept, keys.reject, keys.accept_all, keys.reject_all }) do
