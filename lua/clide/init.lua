@@ -243,6 +243,7 @@ function M.stop()
     require("clide.server.ws").stop(state.server)
   end
 
+  require("clide.terminal").close()
   require("clide.status").teardown()
   M.state = {}
 end

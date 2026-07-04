@@ -25,6 +25,19 @@ describe("clide lifecycle", function()
     assert.equals(0, vim.fn.filereadable(lock))
   end)
 
+  it("stop closes the terminal", function()
+    clide.start()
+    local terminal = require("clide.terminal")
+    local closed = false
+    local orig_close = terminal.close
+    terminal.close = function()
+      closed = true
+    end
+    clide.stop()
+    terminal.close = orig_close
+    assert.is_true(closed)
+  end)
+
   it("start is idempotent", function()
     clide.start()
     local port = clide.state.server.port
