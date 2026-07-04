@@ -1,6 +1,6 @@
 local M = {}
 
---- { server, rpc, client, connected, child_job, mcp_port }
+--- { server, clients[{client, rpc}], connected, child_job, mcp_port }
 M.state = {}
 
 function M.setup(opts)
@@ -29,24 +29,46 @@ function M.start()
   lockfile.clean_stale()
 
   local token = lockfile.generate_token()
-  local rpc
 
   local server, err = ws.start({
     auth_token = token,
-    on_message = function(_, text)
-      rpc:handle(text)
+    on_message = function(client, text)
+      if not M.state.clients then
+        return
+      end
+      for _, s in pairs(M.state.clients) do
+        if s.client == client then
+          s.rpc:handle(text)
+          return
+        end
+      end
     end,
     on_connect = function(client)
-      M.state.client = client
+      M.state.clients = M.state.clients or {}
+      local session = {
+        client = client,
+        rpc = rpc_mod.new(function(text)
+          ws.send(client, text)
+        end),
+      }
+      table.insert(M.state.clients, session)
       M.state.connected = true
       log.log("info", "claude connected")
       vim.schedule(function()
         vim.notify("clide: Claude connected", vim.log.levels.INFO)
       end)
     end,
-    on_disconnect = function()
-      M.state.client = nil
-      M.state.connected = false
+    on_disconnect = function(client)
+      if not M.state.clients then
+        return
+      end
+      for id, s in pairs(M.state.clients) do
+        if s.client == client then
+          M.state.clients[id] = nil
+          break
+        end
+      end
+      M.state.connected = next(M.state.clients) ~= nil
       log.log("info", "claude disconnected")
       vim.schedule(function()
         vim.notify("clide: Claude disconnected", vim.log.levels.WARN)
@@ -58,21 +80,21 @@ function M.start()
     return
   end
 
-  rpc = rpc_mod.new(function(text)
-    if M.state.client then
-      ws.send(M.state.client, text)
-    end
-  end)
-
   lockfile.write(server.port, token)
   selection.enable(function(method, params)
-    rpc:notify(method, params)
+    if not M.state.clients then
+      return
+    end
+    for _, s in pairs(M.state.clients) do
+      if s.rpc then
+        pcall(s.rpc.notify, s.rpc, method, params)
+      end
+    end
   end)
 
   require("clide.status").setup()
 
   M.state.server = server
-  M.state.rpc = rpc
   vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
 
   -- Spawn or reattach to persistent MCP child process
