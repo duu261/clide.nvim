@@ -1,6 +1,6 @@
 local M = {}
 
---- { server, rpc, client, connected }
+--- { server, rpc, client, connected, child_job, mcp_port }
 M.state = {}
 
 function M.setup(opts)
@@ -18,7 +18,6 @@ function M.start()
   end
   vim.notify("clide: starting server...", vim.log.levels.INFO)
 
-  local config = require("clide.config")
   local tools = require("clide.tools")
   local lockfile = require("clide.lockfile")
   local ws = require("clide.server.ws")
@@ -76,33 +75,8 @@ function M.start()
   M.state.rpc = rpc
   vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
 
-  -- Start SSE MCP server (non-fatal: WS continues if this fails)
-  local sse_ok, sse_err = pcall(function()
-    local sse = require("clide.server.sse")
-    local sse_server = sse.start({
-      port = config.get().sse_port,
-      on_message = function(text)
-        if M.state.sse_rpc then
-          M.state.sse_rpc:handle(text)
-        end
-      end,
-    })
-    if sse_server then
-      M.state.sse_rpc = rpc_mod.new(function(text)
-        sse.send(sse_server, text)
-      end)
-      M.state.sse_server = sse_server
-
-      if config.get().auto_install_mcp then
-        require("clide.mcp_config").install(sse_server.port)
-      end
-    else
-      vim.notify("clide: SSE MCP server failed to start", vim.log.levels.WARN)
-    end
-  end)
-  if not sse_ok then
-    vim.notify("clide: SSE MCP server error: " .. tostring(sse_err), vim.log.levels.WARN)
-  end
+  -- Spawn or reattach to persistent MCP child process
+  M.ensure_mcp_server()
 
   vim.api.nvim_create_autocmd("VimLeavePre", {
     group = vim.api.nvim_create_augroup("ClideLifecycle", { clear = true }),
@@ -116,16 +90,87 @@ function M.start()
   vim.notify("clide: Claude launched in terminal", vim.log.levels.INFO)
 end
 
+--- Reattach to existing child or spawn headless nvim process.
+function M.ensure_mcp_server()
+  local lockfile_mcp = require("clide.lockfile_mcp")
+
+  local lock_data = lockfile_mcp.read()
+  if lock_data then
+    local ok = pcall(function()
+      local chan = vim.fn.sockconnect("tcp", "127.0.0.1:" .. lock_data.ssePort, { mode = "json" })
+      vim.fn.chanclose(chan)
+    end)
+    if ok then
+      M.state.mcp_port = lock_data.ssePort
+      vim.notify(
+        "clide: reattached to MCP server on port " .. lock_data.ssePort,
+        vim.log.levels.INFO
+      )
+      return
+    end
+    lockfile_mcp.remove()
+  end
+
+  local argv = { "nvim", "--headless", "-u", "NONE" }
+  for _, p in ipairs(vim.opt.rtp:get()) do
+    table.insert(argv, "--cmd")
+    table.insert(argv, ("set rtp+=%s"):format(p))
+  end
+  table.insert(argv, "-c")
+  table.insert(argv, "lua require('clide.server.detached').run()")
+
+  M.state.child_job = vim.fn.jobstart(argv, {
+    stdin = "pipe",
+    on_exit = function(_, code)
+      vim.schedule(function()
+        lockfile_mcp.remove()
+        M.state.child_job = nil
+        M.state.mcp_port = nil
+        if code ~= 0 then
+          vim.notify("clide: MCP server exited (" .. code .. ")", vim.log.levels.WARN)
+        end
+      end)
+    end,
+  })
+
+  local ok = vim.wait(5000, function()
+    return vim.fn.filereadable(lockfile_mcp.path()) == 1
+  end, 100)
+
+  if not ok then
+    vim.notify("clide: timeout waiting for MCP server", vim.log.levels.WARN)
+    return
+  end
+
+  lock_data = lockfile_mcp.read()
+  if not lock_data then
+    vim.notify("clide: failed to read MCP server lockfile", vim.log.levels.WARN)
+    return
+  end
+
+  M.state.mcp_port = lock_data.ssePort
+  vim.notify("clide: MCP server started on port " .. lock_data.ssePort, vim.log.levels.INFO)
+
+  if require("clide.config").get().auto_install_mcp then
+    require("clide.mcp_config").install(lock_data.ssePort)
+  end
+end
+
 function M.stop()
+  if M.state.child_job then
+    local channel = vim.fn.jobgetchannel(M.state.child_job)
+    if channel then
+      pcall(vim.fn.chansend, channel, "DIE\n")
+    end
+  end
+
   local state = M.state
   if state.server then
     require("clide.selection").disable()
     require("clide.lockfile").remove(state.server.port)
     require("clide.server.ws").stop(state.server)
   end
-  if state.sse_server then
-    require("clide.server.sse").stop(state.sse_server)
-  end
+
   require("clide.status").teardown()
   M.state = {}
 end

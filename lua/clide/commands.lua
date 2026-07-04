@@ -54,11 +54,11 @@ function M.setup()
 
   vim.api.nvim_create_user_command("ClideInstallMCP", function()
     local state = require("clide").state
-    if not state.sse_server then
-      vim.notify("clide: SSE server not running — start clide first", vim.log.levels.WARN)
+    if not state.mcp_port then
+      vim.notify("clide: MCP server not running — start clide first", vim.log.levels.WARN)
       return
     end
-    require("clide.mcp_config").install(state.sse_server.port)
+    require("clide.mcp_config").install(state.mcp_port)
     vim.notify(
       "clide: MCP config written to .mcp.json + .claude/settings.local.json",
       vim.log.levels.INFO
