@@ -1,5 +1,3 @@
-local config = require("clide.config")
-
 local M = { name = "toggleterm" }
 
 local terminals = {}
@@ -9,16 +7,17 @@ function M.is_available()
   return ok
 end
 
-local function terminal_for(cmd)
+local function terminal_for(cmd, env)
   if not terminals[cmd] then
     local Terminal = require("toggleterm.terminal").Terminal
-    terminals[cmd] = Terminal:new({ cmd = cmd, direction = "vertical", close_on_exit = true })
+    terminals[cmd] =
+      Terminal:new({ cmd = cmd, direction = "vertical", env = env, close_on_exit = true })
   end
   return terminals[cmd]
 end
 
 function M.open(cmd, env)
-  local t = terminal_for(cmd)
+  local t = terminal_for(cmd, env)
   if not t:is_open() then
     t:open()
   end
@@ -33,7 +32,7 @@ function M.close()
 end
 
 function M.toggle(cmd, env)
-  local t = terminal_for(cmd)
+  local t = terminal_for(cmd, env)
   t:toggle()
 end
 
