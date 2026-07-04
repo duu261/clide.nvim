@@ -16,13 +16,21 @@ local defaults = {
     inline = true,
     hint_line = true,
     keymaps = {
-      accept = "ga",
-      reject = "gr",
-      accept_all = "gA",
-      reject_all = "gR",
+      accept = "<Leader>ma",
+      reject = "<Leader>mr",
+      accept_all = "<Leader>mA",
+      reject_all = "<Leader>mR",
       next_hunk = "]h",
       prev_hunk = "[h",
     },
+  },
+  cmd_keymaps = {
+    toggle = "<Leader>mt",
+    start = "<Leader>ms",
+    stop = "<Leader>mq",
+    log = "<Leader>ml",
+    send = "<Leader>me",         -- visual mode: send selection
+    send_toggle = "<Leader>mz",  -- visual mode: send + toggle terminal
   },
 }
 

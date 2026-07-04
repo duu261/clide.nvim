@@ -49,10 +49,13 @@ Or any plugin manager — just add to your runtimepath and call
 ```vim
 :ClideStart      " Start server + launch claude
 " Ask Claude to edit a file — hunks appear inline
-ga               " Accept hunk
-gr               " Reject hunk
+<Leader>ma       " Accept hunk
+<Leader>mr       " Reject hunk
 ]h / [h          " Next / previous pending hunk (cross-files)
-:'<,'>ClideSend  " At-mention selected range in Claude's context
+<Leader>mt       " Toggle claude terminal
+<Leader>ms       " Start clide
+<Leader>me       " (visual) Send selection to Claude
+<Leader>mz       " (visual) Send + toggle terminal
 ```
 
 First run? `:checkhealth clide` verifies everything.
@@ -72,10 +75,16 @@ require("clide").setup({
   review = {
     inline = true,          -- false = side-by-side diff tab
     keymaps = {
-      accept = "ga", reject = "gr",
-      accept_all = "gA", reject_all = "gR",
+      accept = "<Leader>ma", reject = "<Leader>mr",
+      accept_all = "<Leader>mA", reject_all = "<Leader>mR",
       next_hunk = "]h", prev_hunk = "[h",
     },
+  },
+  cmd_keymaps = {
+    toggle = "<Leader>mt",
+    start = "<Leader>ms",
+    stop = "<Leader>mq",
+    log = "<Leader>ml",
   },
 })
 ```

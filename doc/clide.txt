@@ -57,12 +57,19 @@ See README.md for all options and defaults.
 
 Active while a review has pending hunks (buffer-local, configurable):
 
-  ga    accept hunk under/near cursor
-  gr    reject hunk
-  gA    accept all hunks in buffer
-  gR    reject all hunks in buffer
-  ]h    next pending hunk (crosses files)
-  [h    previous pending hunk
+  <Leader>ma    accept hunk under/near cursor
+  <Leader>mr    reject hunk
+  <Leader>mA    accept all hunks in buffer
+  <Leader>mR    reject all hunks in buffer
+  ]h           next pending hunk (crosses files)
+  [h           previous pending hunk
+
+Global (normal mode):
+
+  <Leader>ms   :ClideStart
+  <Leader>mq   :ClideStop
+  <Leader>mt   :ClideToggle
+  <Leader>ml   :ClideLog
 
 ==============================================================================
 6. TERMINAL PROVIDERS                                          *clide-providers*

@@ -6,7 +6,35 @@ M.state = {}
 function M.setup(opts)
   require("clide.config").setup(opts)
   require("clide.commands").setup()
-  if require("clide.config").get().autostart then
+  local cfg = require("clide.config").get()
+
+  -- Normal mode cmd mappings
+  for cmd, lhs in pairs(cfg.cmd_keymaps) do
+    if cmd ~= "send" and cmd ~= "send_toggle" then
+      vim.keymap.set("n", lhs, "<Cmd>Clide" .. cmd:gsub("^.", string.upper) .. "<CR>", {
+        desc = "clide: " .. cmd,
+        silent = true,
+      })
+    end
+  end
+
+  -- Visual mode: send selection to Claude
+  if cfg.cmd_keymaps.send then
+    vim.keymap.set("x", cfg.cmd_keymaps.send, ":'<,'>ClideSend<CR>", {
+      desc = "clide: send selection",
+      silent = true,
+    })
+  end
+
+  -- Visual mode: send selection + toggle terminal
+  if cfg.cmd_keymaps.send_toggle then
+    vim.keymap.set("x", cfg.cmd_keymaps.send_toggle, ":'<,'>ClideSend<CR>:ClideToggle<CR>", {
+      desc = "clide: send selection + toggle",
+      silent = true,
+    })
+  end
+
+  if cfg.autostart then
     M.start()
   end
 end
