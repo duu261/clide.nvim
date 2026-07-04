@@ -113,7 +113,10 @@ function M.process(server, client)
       if #client.buf > MAX_BUFFER_SIZE then
         log.log("error", "client buffer exceeded " .. MAX_BUFFER_SIZE .. " bytes")
         vim.schedule(function()
-          vim.notify("clide: WS client buffer exceeded " .. MAX_BUFFER_SIZE .. " bytes", vim.log.levels.WARN)
+          vim.notify(
+            "clide: WS client buffer exceeded " .. MAX_BUFFER_SIZE .. " bytes",
+            vim.log.levels.WARN
+          )
         end)
         M.disconnect(server, client)
       end

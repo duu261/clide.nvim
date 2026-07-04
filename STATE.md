@@ -1,4 +1,4 @@
-# clide.nvim — v0.3.0
+# clide.nvim — v0.2.1
 
 Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WS + SSE
 MCP) with inline per-hunk review.
@@ -53,10 +53,10 @@ All available over both WS and SSE transports.
 | Simple tools (workspace, editors, diag, docs, tabs, eval) | 8 | tools_simple_spec |
 | MCP config (install, merge, idempotent) | 4 | sse_spec (MCP config block) |
 | Other (selection, sha1, config, lockfile, status, init) | 31 | selection_spec, sha1_spec, config_spec, lockfile_spec, status_spec, init_spec |
-| openFile, openDiff tools | ~18 | tools_openfile_spec, tools_opendiff_spec |
+| openFile, openDiff tools | ~19 | tools_openfile_spec, tools_opendiff_spec |
 
 ### Coverage gaps
-- No test for `ClideReviewTab` command (uses untested `open_classic` fallback)
+- open_classic test exists but is minimal (window count only, no layout/buffer assertions)
 - tmux provider tests skip actual pane creation (side effects)
 - snacks provider tests minimal (installed dep assumed)
 
@@ -68,7 +68,7 @@ All available over both WS and SSE transports.
 - Dogfooded: session completed entirely through clide.nvim's own protocol
 
 ## Known gaps for next release
-- `ClideReviewTab` untested open_classic code path
+- open_classic test minimal (window count only, no layout/buffer assertions) 
 - Terminal: skip tmux/snacks real-pane tests
 
 ## Build history
