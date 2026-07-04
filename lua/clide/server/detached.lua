@@ -36,10 +36,12 @@ function M.run()
   local tools = require("clide.tools")
   local sse = require("clide.server.sse")
   local rpc_mod = require("clide.server.rpc")
+  local config = require("clide.config")
 
   tools.setup()
 
   M.server = sse.start({
+    port = config.get().sse_port,
     on_message = function(text, respond)
       if respond then
         local one_off = rpc_mod.new(respond)

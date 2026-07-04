@@ -74,7 +74,15 @@ function M.start(opts)
   }
 
   local handle = vim.uv.new_tcp()
-  local bind_ok, bind_err = pcall(handle.bind, handle, "127.0.0.1", opts.port or 0)
+  local bind_port = opts.port or 0
+  local bind_ok, bind_err = pcall(handle.bind, handle, "127.0.0.1", bind_port)
+  if not bind_ok and bind_port ~= 0 then
+    -- Fallback: configured port busy, let OS pick one
+    log.log("warn", "sse port " .. bind_port .. " busy, using dynamic fallback")
+    handle:close()
+    handle = vim.uv.new_tcp()
+    bind_ok, bind_err = pcall(handle.bind, handle, "127.0.0.1", 0)
+  end
   if not bind_ok then
     handle:close()
     log.log("error", "sse bind failed: " .. tostring(bind_err))
@@ -153,14 +161,18 @@ function M.start(opts)
                 pcall(client.close, client)
                 return
               end
-              -- Session gate: initialize without header mints a new session
+              -- Session gate: initialize mints or reuses a session.
+              -- Preserve across re-initializations so MCP client doesn't
+              -- get "Session not found" on tool calls after reconnect (#55970).
               if
                 msg.method == "initialize" and (not req.mcp_session_id or req.mcp_session_id == "")
               then
-                local rand_bytes = vim.uv.random(4)
-                server.streamable_session_id = rand_bytes:gsub(".", function(c)
-                  return string.format("%02x", string.byte(c))
-                end)
+                if not server.streamable_session_id then
+                  local rand_bytes = vim.uv.random(4)
+                  server.streamable_session_id = rand_bytes:gsub(".", function(c)
+                    return string.format("%02x", string.byte(c))
+                  end)
+                end
               else
                 if
                   not server.streamable_session_id
@@ -207,12 +219,16 @@ function M.start(opts)
                 pcall(server.sse_client.close, server.sse_client)
               end
               server.sse_client = client
-              local rand_bytes = vim.uv.random(4)
-              server.session_id = (
-                rand_bytes:gsub(".", function(c)
-                  return string.format("%02x", string.byte(c))
-                end)
-              )
+              -- Preserve session_id across reconnects so MCP client POSTs
+              -- to /message?sessionId=… keep working after SSE stream drops.
+              if not server.session_id then
+                local rand_bytes = vim.uv.random(4)
+                server.session_id = (
+                  rand_bytes:gsub(".", function(c)
+                    return string.format("%02x", string.byte(c))
+                  end)
+                )
+              end
 
               -- Stop existing keepalive timer
               if server.timer then
