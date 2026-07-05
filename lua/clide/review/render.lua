@@ -25,7 +25,8 @@ function M.set_hint(review)
   })
 end
 
-function M.attach(review)
+function M.attach(review, callbacks)
+  callbacks = callbacks or {}
   if config.get().review.hint_line then
     M.set_hint(review)
   end
@@ -38,7 +39,7 @@ function M.attach(review)
     local opts = {
       virt_lines = virt_lines,
       virt_lines_above = hunk.count_a == 0 and hunk.start_a == 0,
-      sign_text = "┃",
+      sign_text = "\227\148\131",
       sign_hl_group = "ClideAdded",
       invalidate = true,
     }
@@ -49,7 +50,7 @@ function M.attach(review)
     end
     hunk.extmark = vim.api.nvim_buf_set_extmark(review.bufnr, ns, row, 0, opts)
   end
-  M.set_keymaps(review)
+  M.set_keymaps(review, callbacks)
 end
 
 --- Current 0-based row of a hunk's anchor extmark.
@@ -79,24 +80,28 @@ function M.detach(review)
   end
 end
 
-function M.set_keymaps(review)
-  local engine = require("clide.review.engine")
+function M.set_keymaps(review, callbacks)
+  callbacks = callbacks or {}
   local keys = config.get().review.keymaps
   local opts = function(desc)
     return { buffer = review.bufnr, desc = desc }
   end
-  vim.keymap.set("n", keys.accept, function()
-    engine.resolve_at_cursor(review, "accept")
-  end, opts("clide: accept hunk"))
-  vim.keymap.set("n", keys.reject, function()
-    engine.resolve_at_cursor(review, "reject")
-  end, opts("clide: reject hunk"))
-  vim.keymap.set("n", keys.accept_all, function()
-    engine.resolve_all(review, "accept")
-  end, opts("clide: accept all hunks"))
-  vim.keymap.set("n", keys.reject_all, function()
-    engine.resolve_all(review, "reject")
-  end, opts("clide: reject all hunks"))
+  if callbacks.resolve_at_cursor then
+    vim.keymap.set("n", keys.accept, function()
+      callbacks.resolve_at_cursor(review, "accept")
+    end, opts("clide: accept hunk"))
+    vim.keymap.set("n", keys.reject, function()
+      callbacks.resolve_at_cursor(review, "reject")
+    end, opts("clide: reject hunk"))
+  end
+  if callbacks.resolve_all then
+    vim.keymap.set("n", keys.accept_all, function()
+      callbacks.resolve_all(review, "accept")
+    end, opts("clide: accept all hunks"))
+    vim.keymap.set("n", keys.reject_all, function()
+      callbacks.resolve_all(review, "reject")
+    end, opts("clide: reject all hunks"))
+  end
 end
 
 return M

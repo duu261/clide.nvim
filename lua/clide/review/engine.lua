@@ -64,7 +64,10 @@ function M.open(args, respond)
     done = false,
   }
 
-  render.attach(review)
+  render.attach(review, {
+    resolve_at_cursor = M.resolve_at_cursor,
+    resolve_all = M.resolve_all,
+  })
   queue.add(review)
   return review
 end
