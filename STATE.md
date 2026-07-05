@@ -67,9 +67,9 @@ All available over both WS and SSE transports.
 - `make lint` mirrors CI (stylua + luacheck)
 - Dogfooded: session completed entirely through clide.nvim's own protocol
 
-## Known gaps for next release
-- Terminal: skip tmux/snacks real-pane tests (deliberate — side effects, no real pane in headless CI)
-- Streamable HTTP POST /sse: single-session only (new `initialize` overwrites `streamable_session_id`, no concurrent MCP clients)
+## Docs
+- `docs/SCOPE.md` — project purpose, core flows, done definition, roadmap
+- `docs/WORKFLOW.md` — branch/worktree, providers, token budget, dev cycle
 
 ## Build history
 `.superpowers/sdd/progress.md` (gitignored, local only) — full task-level build log,

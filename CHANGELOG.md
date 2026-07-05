@@ -1,0 +1,107 @@
+
+All notable changes to clide.nvim.
+
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- Streamable HTTP `POST /sse` transport (MCP spec compliant)
+- Tmux panes labeled with project name
+- MCP session persistence across Claude restarts
+
+### Changed
+- Extracted `util/fs` and `clide/mcp` modules from init
+- Broke circular require between review engine and render
+
+### Fixed
+- Terminal closed on `:ClideStop` to prevent orphaned tmux panes
+- Stable SSE port preserved across sessions for MCP reconnect
+
+## [0.3.1] — 2026-07-04
+
+### Changed
+- Default keymaps moved to `<Leader>m` prefix to avoid clashes
+- Keymap configuration split into `review.keymaps` and `cmd_keymaps`
+
+## [0.3.0] — 2026-07-04
+
+### Added
+- **Multi-session support** — multiple Claude CLI clients connect to one WS
+  server, each with independent RPC dispatch
+- **Persistent MCP server** — headless Neovim child process survives Claude
+  restarts; `.mcp.json` stays valid
+- Fixed SSE port (`42069` default) for stable `.mcp.json` across sessions
+- `:ClideRestart` command
+- `:checkhealth clide` integration
+- Per-hunk accept/reject notifications
+- Review keymap hints and toggleterm provider support
+
+### Changed
+- Lockfile enforces `0600` permissions
+- Probe timeout on lockfile stale detection
+- Enhanced README and vimdoc with full feature detail
+
+### Fixed
+- Terminal provider test isolation (5 providers, 24 tests)
+
+## [0.2.1] — 2026-07-03
+
+### Added
+- Hunk accept/reject and review-complete notifications
+- `:ClideSend` confirmation notification
+- Startup progress notifications
+- Critical SSE errors promoted to user-visible notifications
+- Connect/disconnect and critical WS errors promoted to notifications
+- `vim_search`, `vim_grep`, `diagnose` MCP tools (17 total)
+- `vim_edit` and `luaEval` MCP tools; `executeCode` made live
+- Expanded terminal provider test coverage (24 tests, all 5 providers)
+- `STATE.md` for cross-session context
+
+### Changed
+- Test target made quiet — `TOTAL:` line on success, full log on failure
+
+### Fixed
+- Removed dead status cache and stale luacheck ignores
+- Hardened deepseek-era servers and tools
+
+## [0.2.0] — 2026-07-03
+
+### Added
+- **SSE MCP server** — second transport alongside WebSocket
+- `.mcp.json` auto-config with `:ClideInstallMCP`
+- Streamable HTTP `POST /sse` (initial implementation)
+- SSE server wired into `:ClideStart` startup flow
+
+### Fixed
+- SSE `read_start` wrapped in `pcall`
+- `vim.schedule` in SSE response path
+- Non-GET requests on `/sse` rejected to force HTTP+SSE transport
+- LuaJIT compilation error from combined local declaration + assignment
+
+## [0.1.0] — 2026-07-02
+
+### Added
+- **WebSocket server** with CSPRNG auth token and lock file discovery
+- **RFC 6455 frame codec** with pure-Lua SHA-1 handshake
+- **JSON-RPC 2.0 dispatcher** with MCP tool registry
+- **12 core MCP tools**: `openFile`, `openDiff`, `saveDocument`,
+  `checkDocumentDirty`, `getOpenEditors`, `getCurrentSelection`,
+  `getLatestSelection`, `getWorkspaceFolders`, `getDiagnostics`,
+  `executeCode`, `close_tab`, `closeAllDiffTabs`
+- **Inline per-hunk review** — extmark-anchored hunks with accept/reject
+- **Cross-file review queue** with `]h` / `[h` navigation
+- **Inline vs. classic diff routing** — `openDiff` routes to inline
+  review by default; `:ClideReviewTab` falls back to side-by-side
+- **5 terminal providers** — tmux, toggleterm.nvim, snacks.nvim,
+  native `:terminal`, none
+- **Selection tracking** — debounced `textDocument/didChangeSelection`
+  notifications; `@`-mention via `:ClideSend`
+- **Statusline integration** — hooks-driven lualine component
+  (working/waiting/idle states)
+- **`:ClideStart` / `:ClideStop` / `:ClideToggle`** commands
+- **`:checkhealth clide`** diagnostics
+- **Headless test suite** — plenary/busted, real TCP clients
+- **CI** — stable + nightly Neovim matrix, stylua + luacheck gate
+- README, vimdoc, MIT license

@@ -3,7 +3,9 @@
 Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WebSocket + SSE
 MCP) with inline per-hunk review. Protocol reference: PROTOCOL.md.
 
-**Session start: read STATE.md** — current version, tool list, test coverage, known gaps.
+**Session start: read docs/SCOPE.md** — project purpose, done definition,
+roadmap, scope boundaries. STATE.md is a snapshot of version + test counts only
+(not the gap list — SCOPE.md owns that).
 
 ## Hard constraints
 
@@ -23,8 +25,7 @@ MCP) with inline per-hunk review. Protocol reference: PROTOCOL.md.
 
 - New features: run the nvim-plugin-maker skill flow first — brainstorm, then
   scope in `docs/SCOPE.md`, then TDD for anything risky (evented/async/IO/
-  config/command). Keep `docs/SCOPE.md` current as items land; it's the
-  source of truth for what's done vs. gap, not STATE.md prose.
+  config/command). Keep `docs/SCOPE.md` current as items land.
 - Tests: cover the risky surface — protocol (frame/handshake/rpc/ws/sse), auth, and
   review hunk-diff. Test-first there when it earns its cost; skip tests for trivial
   wrappers. No strict red-green ceremony. Always run `make test` before a commit
@@ -37,8 +38,7 @@ MCP) with inline per-hunk review. Protocol reference: PROTOCOL.md.
 
 ```bash
 make test      # plenary busted suite, headless nvim
-stylua lua/ tests/
-luacheck lua/ tests/
+make lint      # stylua --check lua/ tests/ + luacheck lua/ tests/
 ```
 
 ## Layout
@@ -46,9 +46,26 @@ luacheck lua/ tests/
 - `lua/clide/server/` — WS + SSE transports (frame, handshake, ws, sse, rpc)
 - `lua/clide/tools/` — the 17 MCP protocol tools (registry in init.lua)
 - `lua/clide/review/` — inline hunk review (engine, render, queue)
-- `lua/clide/terminal/` — providers: native, tmux, snacks, none
+- `lua/clide/terminal/` — providers: native, tmux, toggleterm, snacks, none
+- `lua/clide/util/` — log, fs helpers
 - `tests/` — plenary specs, `tests/minimal_init.lua` bootstraps
+- `docs/SCOPE.md` — purpose, flows, done definition, roadmap
+- `docs/WORKFLOW.md` — dev cycle, providers, token budget, pre-release
+- `CHANGELOG.md` — Keep a Changelog, semver
+- `CONFIG.md` — every `setup()` key documented
+- `doc/clide.txt` — vimdoc (`:help clide`), modeline `noet`
 - Implementation plan: `docs/superpowers/plans/2026-07-02-clide-nvim/` (local only)
+
+## Release
+
+- Pre-release checklist in `docs/WORKFLOW.md`.
+- Artifacts: README (marketing), CHANGELOG.md (Keep a Changelog), CONFIG.md
+  (every `setup()` key documented), `doc/clide.txt` (vimdoc, self-contained
+  for `:help clide` — modeline `noet`, all sections, no "see README" gaps).
+- `doc/tags` is gitignored — plugin managers regenerate on install.
+- CI: stable+nightly matrix, stylua + luacheck gate (`.github/workflows/ci.yml`).
+- Version: semver tags, conventional commits for changelog generation.
+- `make test` green + `make lint` clean before tagging.
 
 ## Agent skills
 

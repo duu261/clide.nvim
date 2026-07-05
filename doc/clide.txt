@@ -5,11 +5,13 @@ CONTENTS                                                        *clide-contents*
 
   1. Introduction ......................... |clide-introduction|
   2. Requirements ......................... |clide-requirements|
-  3. Setup ................................ |clide-setup|
-  4. Commands ............................. |clide-commands|
-  5. Review keymaps ....................... |clide-review|
-  6. Terminal providers ................... |clide-providers|
-  7. Statusline ........................... |clide-statusline|
+  3. Configuration ......................... |clide-configuration|
+  4. Setup ................................ |clide-setup|
+  5. Commands ............................. |clide-commands|
+  6. Review keymaps ....................... |clide-review|
+  7. Terminal providers ................... |clide-providers|
+  8. Statusline ........................... |clide-statusline|
+  9. FAQ .................................. |clide-faq|
 
 ==============================================================================
 1. INTRODUCTION                                             *clide-introduction*
@@ -28,16 +30,64 @@ connect simultaneously to one WS server, each with independent RPC dispatch.
 - nvim-lua/plenary.nvim
 
 ==============================================================================
-3. SETUP                                                           *clide-setup*
+3. CONFIGURATION                                           *clide-configuration*
+
+Defaults shown. All keys optional — |clide-setup| works without arguments.
+
+>lua
+  require("clide").setup({
+    autostart = false,
+    sse_port = 42069,
+    follow = false,
+    auto_install_mcp = true,
+    log_level = "info",
+    terminal = {
+      provider = "auto",
+      cmd = "claude",
+      split_side = "right",
+      split_width = 0.35,
+    },
+    review = {
+      inline = true,
+      hint_line = true,
+      keymaps = {
+        accept = "<Leader>ma",
+        reject = "<Leader>mr",
+        accept_all = "<Leader>mA",
+        reject_all = "<Leader>mR",
+        next_hunk = "]h",
+        prev_hunk = "[h",
+      },
+    },
+    cmd_keymaps = {
+      toggle = "<Leader>mt",
+      start = "<Leader>ms",
+      stop = "<Leader>mq",
+      log = "<Leader>ml",
+      send = "<Leader>me",
+      send_toggle = "<Leader>mz",
+    },
+  })
+<
+
+terminal.provider: "auto" | "tmux" | "toggleterm" | "snacks" | "native" | "none"
+  auto resolves: tmux ($TMUX) → snacks (if installed) → native
+
+review.inline: true = inline hunks | false = side-by-side diff tab
+
+Set any cmd_keymaps entry to false to disable that mapping.
+
+==============================================================================
+4. SETUP                                                           *clide-setup*
 
 >lua
   require("clide").setup({})
 <
 
-See README.md for all options and defaults.
+See |clide-configuration| for all options and defaults.
 
 ==============================================================================
-4. COMMANDS                                                     *clide-commands*
+5. COMMANDS                                                     *clide-commands*
 
 :ClideStart          Start server, write lock file, launch claude.
 :ClideStop           Stop server, remove lock file.
@@ -53,7 +103,7 @@ See README.md for all options and defaults.
 :checkhealth clide   Diagnose setup: Neovim, claude CLI, plenary, providers.
 
 ==============================================================================
-5. REVIEW KEYMAPS                                                 *clide-review*
+6. REVIEW KEYMAPS                                                 *clide-review*
 
 Active while a review has pending hunks (buffer-local, configurable):
 
@@ -72,14 +122,14 @@ Global (normal mode):
   <Leader>ml   :ClideLog
 
 ==============================================================================
-6. TERMINAL PROVIDERS                                          *clide-providers*
+7. TERMINAL PROVIDERS                                          *clide-providers*
 
 auto (default) resolves: tmux (inside $TMUX) > snacks.nvim (if installed)
 > native |:terminal|. Set terminal.provider to force one, or "none" to run
 claude yourself with the env vars clide prints.
 
 ==============================================================================
-7. STATUSLINE                                                 *clide-statusline*
+8. STATUSLINE                                                 *clide-statusline*
 
 >lua
   require("clide.status").lualine
@@ -88,4 +138,28 @@ claude yourself with the env vars clide prints.
 States: working, waiting, idle, disconnected — driven by Claude Code hooks
 (run :ClideInstallHooks once per project). Includes pending review count.
 
-vim:tw=78:ts=8:ft=help:norl:
+==============================================================================
+9. FAQ                                                                 *clide-faq*
+
+Claude doesn't connect?
+  Run |:checkhealth| clide. Ensure `claude` CLI is in PATH and :ClideStart
+  ran without errors.
+
+"E444: Cannot close last window"?
+  The claude terminal is the only window. Open a file or :ClideToggle.
+
+Multiple Claude instances?
+  Yes. Each connects as its own session — side-by-side agents on different
+  files.
+
+Hunks not showing?
+  Check review.inline = true (default). Use :ClideReviewTab for side-by-side
+  diff fallback.
+
+Stop everything?
+  :ClideStop — kills server, removes lockfile, closes all sessions.
+
+Port conflict?
+  Set sse_port in |clide-configuration| to a different value.
+
+vim:tw=78:ts=8:noet:ft=help:norl:

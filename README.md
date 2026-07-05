@@ -65,6 +65,9 @@ First run? `:checkhealth clide` verifies everything.
 ```lua
 require("clide").setup({
   autostart = false,
+  sse_port = 42069,
+  follow = false,
+  auto_install_mcp = true,
   log_level = "info",
   terminal = {
     provider = "auto",      -- auto | native | tmux | toggleterm | snacks | none
@@ -74,6 +77,7 @@ require("clide").setup({
   },
   review = {
     inline = true,          -- false = side-by-side diff tab
+    hint_line = true,
     keymaps = {
       accept = "<Leader>ma", reject = "<Leader>mr",
       accept_all = "<Leader>mA", reject_all = "<Leader>mR",
@@ -85,6 +89,8 @@ require("clide").setup({
     start = "<Leader>ms",
     stop = "<Leader>mq",
     log = "<Leader>ml",
+    send = "<Leader>me",          -- visual: send selection to Claude
+    send_toggle = "<Leader>mz",   -- visual: send + toggle terminal
   },
 })
 ```
@@ -114,6 +120,15 @@ require("clide").setup({
 | `:ClideInstallMCP` | Write `.mcp.json` + auto-approve |
 | `:ClideLog` | Show log ring buffer |
 | `:checkhealth clide` | Diagnose setup |
+
+## 📊 Statusline
+
+```lua
+require("clide.status").lualine
+```
+
+States: working, waiting, idle, disconnected — driven by Claude Code hooks.
+Run `:ClideInstallHooks` once per project. Includes pending review count.
 
 ## 🧠 How it works
 
