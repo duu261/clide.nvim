@@ -22,6 +22,7 @@ describe("simple tools", function()
     package.loaded["clide.tools.vim_edit"] = nil
     package.loaded["clide.tools.open_file"] = nil
     package.loaded["clide.tools.open_diff"] = nil
+    package.loaded["clide.tools.documents"] = nil
     package.preload["clide.follow"] = function()
       return {
         handle = function(path)
@@ -64,6 +65,18 @@ describe("simple tools", function()
     assert.same({ b }, follow_calls)
     vim.fn.delete(a)
     vim.fn.delete(b)
+  end)
+
+  it("saveDocument queues follow on open file", function()
+    local tmp = vim.fn.tempname() .. ".txt"
+    vim.fn.writefile({ "saved" }, tmp)
+    vim.cmd.edit(tmp)
+    vim.api.nvim_buf_set_lines(0, 0, 0, false, { "dirty" })
+    local body = json_of(call("saveDocument", { filePath = tmp }))
+    assert.is_true(body.success)
+    vim.wait(100)
+    assert.same({ tmp }, follow_calls)
+    vim.fn.delete(tmp)
   end)
 
   it("getWorkspaceFolders returns cwd", function()
