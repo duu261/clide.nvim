@@ -41,4 +41,56 @@ describe("follow", function()
     })
     assert.same({ "/tmp/a.lua:true" }, seen)
   end)
+
+  it("queues last path with mode snapshot", function()
+    local seen = {}
+    follow.queue("/tmp/one.lua", {
+      mode = "notify",
+      notify_fn = function(path)
+        table.insert(seen, path)
+      end,
+    })
+    follow.queue("/tmp/two.lua", {
+      mode = "notify",
+      notify_fn = function(path)
+        table.insert(seen, path)
+      end,
+    })
+    vim.wait(50, function()
+      return #seen == 1
+    end)
+    assert.same({ "/tmp/two.lua" }, seen)
+  end)
+
+  it("keeps queued follow after config changes", function()
+    local seen = {}
+    follow.queue("/tmp/two.lua", {
+      mode = "notify",
+      notify_fn = function(path)
+        table.insert(seen, path)
+      end,
+    })
+    package.loaded["clide.config"] = nil
+    require("clide.config").setup({ follow = "off" })
+    vim.wait(50, function()
+      return #seen == 1
+    end)
+    assert.same({ "/tmp/two.lua" }, seen)
+  end)
+
+  it("keeps queued modified snapshot", function()
+    local seen = {}
+    follow.queue("/tmp/two.lua", {
+      mode = "jump",
+      modified = true,
+      open_fn = function(path, use_split)
+        table.insert(seen, path .. ":" .. tostring(use_split))
+      end,
+    })
+    vim.bo.modified = false
+    vim.wait(50, function()
+      return #seen == 1
+    end)
+    assert.same({ "/tmp/two.lua:true" }, seen)
+  end)
 end)

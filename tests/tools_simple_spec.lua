@@ -1,7 +1,6 @@
 describe("simple tools", function()
   local tools
   local follow_calls
-  local follow_module
 
   local function call(name, args)
     local result, err
@@ -18,10 +17,6 @@ describe("simple tools", function()
   before_each(function()
     follow_calls = {}
     package.loaded["clide.follow"] = nil
-    follow_module = require("clide.follow")
-    follow_module.handle = function(path)
-      table.insert(follow_calls, path)
-    end
     package.loaded["clide.tools"] = nil
     package.loaded["clide.selection"] = nil
     package.loaded["clide.tools.vim_edit"] = nil
@@ -55,11 +50,20 @@ describe("simple tools", function()
     vim.fn.writefile({ "one" }, a)
     vim.fn.writefile({ "two" }, b)
 
-    local result_a = call("vim_edit", { filePath = a, action = "replace", line = 1, text = "one-updated" })
-    local result_b = call("vim_edit", { filePath = b, action = "replace", line = 1, text = "two-updated" })
+    local follow = require("clide.follow")
+    follow.handle = function(path)
+      table.insert(follow_calls, path)
+    end
+
+    local result_a =
+      call("vim_edit", { filePath = a, action = "replace", line = 1, text = "one-updated" })
+    local result_b =
+      call("vim_edit", { filePath = b, action = "replace", line = 1, text = "two-updated" })
     assert.is_not_nil(result_a)
     assert.is_not_nil(result_b)
-    vim.wait(50)
+    assert.is_true(vim.wait(50, function()
+      return #follow_calls == 1
+    end))
     assert.same({ b }, follow_calls)
     vim.fn.delete(a)
     vim.fn.delete(b)
@@ -70,9 +74,17 @@ describe("simple tools", function()
     vim.fn.writefile({ "saved" }, tmp)
     vim.cmd.edit(tmp)
     vim.api.nvim_buf_set_lines(0, 0, 0, false, { "dirty" })
+
+    local follow = require("clide.follow")
+    follow.handle = function(path)
+      table.insert(follow_calls, path)
+    end
+
     local body = json_of(call("saveDocument", { filePath = tmp }))
     assert.is_true(body.success)
-    vim.wait(50)
+    assert.is_true(vim.wait(50, function()
+      return #follow_calls == 1
+    end))
     assert.same({ tmp }, follow_calls)
     vim.fn.delete(tmp)
   end)

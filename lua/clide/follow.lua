@@ -1,7 +1,13 @@
 local M = {}
 
-local pending_path
+local pending = nil
 local pending_timer = nil
+local VALID_MODE = {
+  off = true,
+  jump = true,
+  notify = true,
+  both = true,
+}
 
 local function current_mode(opts)
   if opts.mode ~= nil then
@@ -17,17 +23,32 @@ local function current_modified(opts)
   return vim.bo.modified
 end
 
-function M.queue(path)
-  pending_path = path
+local function snapshot(path, opts)
+  opts = opts or {}
+  local mode = current_mode(opts)
+  if not VALID_MODE[mode] then
+    error("invalid follow mode: " .. tostring(mode))
+  end
+  return {
+    path = path,
+    mode = mode,
+    modified = current_modified(opts),
+    notify_fn = opts.notify_fn,
+    open_fn = opts.open_fn,
+  }
+end
+
+function M.queue(path, opts)
+  pending = snapshot(path, opts)
   if pending_timer then
     return
   end
   pending_timer = vim.defer_fn(function()
     pending_timer = nil
-    local path_to_follow = pending_path
-    pending_path = nil
-    if path_to_follow then
-      M.handle(path_to_follow)
+    local queued = pending
+    pending = nil
+    if queued then
+      M.handle(queued.path, queued)
     end
   end, 10)
 end
@@ -36,6 +57,9 @@ function M.handle(path, opts)
   opts = opts or {}
 
   local mode = current_mode(opts)
+  if not VALID_MODE[mode] then
+    error("invalid follow mode: " .. tostring(mode))
+  end
   if mode == "off" then
     return
   end
@@ -44,30 +68,26 @@ function M.handle(path, opts)
   local open = mode == "jump" or mode == "both"
   local modified = current_modified(opts)
 
-  if notify then
-    if opts.notify_fn then
+  if opts.notify_fn or opts.open_fn then
+    if notify and opts.notify_fn then
       opts.notify_fn(path)
-    else
-      vim.schedule(function()
-        vim.notify(path, vim.log.levels.INFO)
-      end)
     end
-  end
-
-  if not open then
-    return
-  end
-
-  if opts.open_fn then
-    opts.open_fn(path, modified)
+    if open and opts.open_fn then
+      opts.open_fn(path, modified)
+    end
     return
   end
 
   vim.schedule(function()
-    if modified then
-      vim.cmd.split()
+    if notify then
+      vim.notify(path, vim.log.levels.INFO)
     end
-    vim.cmd.edit(vim.fn.fnameescape(path))
+    if open then
+      if modified then
+        vim.cmd.split()
+      end
+      vim.cmd.edit(vim.fn.fnameescape(path))
+    end
   end)
 end
 
