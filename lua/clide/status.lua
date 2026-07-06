@@ -34,8 +34,8 @@ function M.setup()
     end)
   )
   if not spinner_timer then
-    spinner_timer = vim.defer_fn(function() end, 0)
-    vim.uv.new_timer():start(
+    spinner_timer = vim.uv.new_timer()
+    spinner_timer:start(
       200,
       200,
       vim.schedule_wrap(function()
