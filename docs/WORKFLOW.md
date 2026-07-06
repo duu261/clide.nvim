@@ -51,7 +51,7 @@ subagents. Never hand-count or do large impl inline.
 ## Token budget
 
 - `make test` headless = ~3000 tokens per run. Run once, cache output.
-- Don't re-read hot files (sse.lua, ws.lua, tools/init.lua). Read once, edit
+- Don't re-read hot files (ws.lua, tools/init.lua). Read once, edit
   batch.
 - Use codegraph/codebase-memory before grep/Read for code understanding.
 - Append to progress files with `printf '...' >>`, not repeated Edit calls.
@@ -61,9 +61,6 @@ subagents. Never hand-count or do large impl inline.
 ```bash
 # Is clide running?
 ss -tlnp | grep nvim
-
-# MCP config correct?
-cat .mcp.json   # should point to 127.0.0.1:<dynamic-port>/sse
 
 # Auth token (never log this)
 cat ~/.claude/ide/*.lock | jq .authToken
@@ -75,7 +72,7 @@ clide.nvim must feel like a Neovim plugin, not a server strapped to Neovim:
 
 1. **Lazy-load**: `plugin/clide.lua` defers `require("clide")` until `:ClideStart`.
 2. **Setup idempotent**: calling `setup()` twice = no-op.
-3. **Teardown clean**: `:ClideStop` closes WS, SSE, timers, lock files.
+3. **Teardown clean**: `:ClideStop` closes WS, timers, lock files.
 4. **Health check**: `:checkhealth clide` verifies `claude` CLI, plenary, tmux (if used), port availability.
 5. **Config get() pattern**: always read through `config.get()`, never access module state directly.
 

@@ -7,7 +7,7 @@ require("clide").setup({
 })
 ```
 
-All keys optional. `setup()` never required — defaults apply without it.
+All keys optional. `setup()` never required - defaults apply without it.
 
 ## Top-level
 
@@ -17,35 +17,24 @@ All keys optional. `setup()` never required — defaults apply without it.
 autostart = false  -- bool
 ```
 
-Start server + launch Claude when Neovim loads. Off by default — most users
+Start server + launch Claude when Neovim loads. Off by default - most users
 prefer `:ClideStart` on demand.
-
-### `sse_port`
-
-```lua
-sse_port = 42069  -- number
-```
-
-Port for the SSE MCP server. Written to `.mcp.json` so MCP clients discover
-it. Change if `42069` conflicts with another service.
 
 ### `follow`
 
 ```lua
-follow = false  -- bool
+follow = "off"  -- "off" | "jump" | "notify" | "both"
 ```
 
-Auto-scroll the Claude terminal as output arrives.
+What clide should do after Claude writes files:
 
-### `auto_install_mcp`
+- `"off"` - no follow action
+- `"jump"` - open last Claude-written file
+- `"notify"` - notify with last Claude-written file path
+- `"both"` - notify and open
 
-```lua
-auto_install_mcp = true  -- bool
-```
-
-Run `:ClideInstallMCP` automatically on `:ClideStart`. Writes `.mcp.json`
-and `.claude/settings.local.json` (auto-approve). Set `false` if you manage
-MCP config manually.
+Writes coalesce by burst. Last file wins. If current buffer has unsaved
+changes, clide opens in a split so Neovim never hits `E37`.
 
 ### `log_level`
 
@@ -53,7 +42,7 @@ MCP config manually.
 log_level = "info"  -- "debug" | "info" | "warn" | "error"
 ```
 
-Minimum severity for the ring-buffer log (`:ClideLog`). Debug includes
+Minimum severity for ring-buffer log (`:ClideLog`). Debug includes
 protocol-level messages (frame send/recv, RPC dispatch).
 
 ## `terminal`
@@ -61,9 +50,9 @@ protocol-level messages (frame send/recv, RPC dispatch).
 ```lua
 terminal = {
   provider = "auto",       -- "auto" | "native" | "tmux" | "toggleterm" | "snacks" | "none"
-  cmd = "claude",          -- string — CLI command to launch
+  cmd = "claude",          -- string - CLI command to launch
   split_side = "right",    -- "right" | "left" | "top" | "bottom" (native/toggleterm only)
-  split_width = 0.35,      -- number — fraction of editor width (native/toggleterm only)
+  split_width = 0.35,       -- number - fraction of editor width (native/toggleterm only)
 }
 ```
 
@@ -73,7 +62,7 @@ How Claude's terminal is opened:
 
 | Value | Behavior |
 |-------|----------|
-| `"auto"` | Resolves: tmux (inside `$TMUX`) → snacks (if installed) → native `:terminal` |
+| `"auto"` | Resolves: tmux (inside `$TMUX`) - snacks (if installed) - native `:terminal` |
 | `"tmux"` | New tmux pane in current window. Survives Neovim restart. Requires `$TMUX`. |
 | `"toggleterm"` | toggleterm.nvim float/terminal. Requires toggleterm.nvim installed. |
 | `"snacks"` | snacks.nvim terminal. Requires snacks.nvim installed. |
@@ -82,7 +71,7 @@ How Claude's terminal is opened:
 
 ### `terminal.cmd`
 
-Shell command to launch. Default `"claude"` — change to a full path or
+Shell command to launch. Default `"claude"` - change to a full path or
 wrapped script.
 
 ### `terminal.split_side`
@@ -92,7 +81,7 @@ uses its own config.
 
 ### `terminal.split_width`
 
-Fraction (0.0–1.0) of editor width for the terminal split. 0.35 = 35%.
+Fraction (0.0-1.0) of editor width for terminal split. 0.35 = 35%.
 
 ## `review`
 
@@ -118,8 +107,7 @@ real buffer. `false`: classic side-by-side diff tab with `:ClideReviewTab`.
 
 ### `review.hint_line`
 
-Show a hint line (`-- Accept (<Leader>ma) / Reject (<Leader>mr)`) above
-each hunk. Buffer-local; set `false` to hide.
+Show a hint line above each hunk. Buffer-local; set `false` to hide.
 
 ### `review.keymaps`
 

@@ -7,17 +7,14 @@ versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
-- Streamable HTTP `POST /sse` transport (MCP spec compliant)
+- Follow mode: opt-in jump/notify after Claude writes files
 - Tmux panes labeled with project name
-- MCP session persistence across Claude restarts
 
 ### Changed
-- Extracted `util/fs` and `clide/mcp` modules from init
-- Broke circular require between review engine and render
+- Extracted `util/fs` module from init
 
 ### Fixed
 - Terminal closed on `:ClideStop` to prevent orphaned tmux panes
-- Stable SSE port preserved across sessions for MCP reconnect
 
 ## [0.3.1] — 2026-07-04
 

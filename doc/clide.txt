@@ -1,4 +1,4 @@
-*clide.txt*  Claude Code in Neovim — pure Lua, inline per-hunk review
+*clide.txt*  Claude Code in Neovim - pure Lua, inline per-hunk review
 
 ==============================================================================
 CONTENTS                                                        *clide-contents*
@@ -16,11 +16,10 @@ CONTENTS                                                        *clide-contents*
 ==============================================================================
 1. INTRODUCTION                                             *clide-introduction*
 
-clide.nvim implements the Claude Code IDE protocol (WebSocket-MCP) in pure
-Lua. Edits proposed by Claude render as inline hunks in your buffers with
-per-hunk accept/reject. An SSE MCP server exposes all 17 IDE tools to
-Claude Code via the standard MCP transport. Multiple Claude CLI clients
-connect simultaneously to one WS server, each with independent RPC dispatch.
+clide.nvim implements Claude Code IDE protocol (WebSocket-MCP) in pure Lua.
+Edits proposed by Claude render as inline hunks in your buffers with per-hunk
+accept/reject. Multiple Claude CLI clients connect simultaneously to one WS
+server, each with independent RPC dispatch.
 
 ==============================================================================
 2. REQUIREMENTS                                             *clide-requirements*
@@ -32,14 +31,12 @@ connect simultaneously to one WS server, each with independent RPC dispatch.
 ==============================================================================
 3. CONFIGURATION                                           *clide-configuration*
 
-Defaults shown. All keys optional — |clide-setup| works without arguments.
+Defaults shown. All keys optional - |clide-setup| works without arguments.
 
 >lua
   require("clide").setup({
     autostart = false,
-    sse_port = 42069,
-    follow = false,
-    auto_install_mcp = true,
+    follow = "off",
     log_level = "info",
     terminal = {
       provider = "auto",
@@ -70,8 +67,12 @@ Defaults shown. All keys optional — |clide-setup| works without arguments.
   })
 <
 
+follow: "off" | "jump" | "notify" | "both"
+  After Claude writes files: do nothing, jump, notify, or both. Writes
+  coalesce by burst, last file wins, and dirty current buffer opens split.
+
 terminal.provider: "auto" | "tmux" | "toggleterm" | "snacks" | "native" | "none"
-  auto resolves: tmux ($TMUX) → snacks (if installed) → native
+  auto resolves: tmux ($TMUX) > snacks (if installed) > native
 
 review.inline: true = inline hunks | false = side-by-side diff tab
 
@@ -92,20 +93,17 @@ See |clide-configuration| for all options and defaults.
 :ClideStart          Start server, write lock file, launch claude.
 :ClideStop           Stop server, remove lock file.
 :ClideRestart        Stop then start.
-:ClideToggle         Toggle the claude terminal (starts if stopped).
-:{range}ClideSend    At-mention the range in Claude's context.
-:ClideReviewTab      Reopen the current inline review as a diff tab.
+:ClideToggle         Toggle claude terminal (starts if stopped).
+:{range}ClideSend    At-mention range in Claude's context.
+:ClideReviewTab      Reopen current inline review as diff tab.
 :ClideInstallHooks   Install status hooks into .claude/settings.local.json.
-:ClideInstallMCP     Write MCP server config to .mcp.json and auto-approve
-                     in .claude/settings.local.json (auto-run on :ClideStart
-                     when auto_install_mcp = true, the default).
-:ClideLog            Show the log ring buffer.
+:ClideLog            Show log ring buffer.
 :checkhealth clide   Diagnose setup: Neovim, claude CLI, plenary, providers.
 
 ==============================================================================
 6. REVIEW KEYMAPS                                                 *clide-review*
 
-Active while a review has pending hunks (buffer-local, configurable):
+Active while review has pending hunks (buffer-local, configurable):
 
   <Leader>ma    accept hunk under/near cursor
   <Leader>mr    reject hunk
@@ -126,7 +124,7 @@ Global (normal mode):
 
 auto (default) resolves: tmux (inside $TMUX) > snacks.nvim (if installed)
 > native |:terminal|. Set terminal.provider to force one, or "none" to run
-claude yourself with the env vars clide prints.
+claude yourself with env vars clide prints.
 
 ==============================================================================
 8. STATUSLINE                                                 *clide-statusline*
@@ -135,7 +133,7 @@ claude yourself with the env vars clide prints.
   require("clide.status").lualine
 <
 
-States: working, waiting, idle, disconnected — driven by Claude Code hooks
+States: working, waiting, idle, disconnected - driven by Claude Code hooks
 (run :ClideInstallHooks once per project). Includes pending review count.
 
 ==============================================================================
@@ -146,10 +144,10 @@ Claude doesn't connect?
   ran without errors.
 
 "E444: Cannot close last window"?
-  The claude terminal is the only window. Open a file or :ClideToggle.
+  claude terminal is only window. Open file or :ClideToggle.
 
 Multiple Claude instances?
-  Yes. Each connects as its own session — side-by-side agents on different
+  Yes. Each connects as its own session - side-by-side agents on different
   files.
 
 Hunks not showing?
@@ -157,9 +155,6 @@ Hunks not showing?
   diff fallback.
 
 Stop everything?
-  :ClideStop — kills server, removes lockfile, closes all sessions.
-
-Port conflict?
-  Set sse_port in |clide-configuration| to a different value.
+  :ClideStop - kills server, removes lockfile, closes all sessions.
 
 vim:tw=78:ts=8:noet:ft=help:norl:
