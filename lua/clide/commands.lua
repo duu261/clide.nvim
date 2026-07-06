@@ -51,19 +51,6 @@ function M.setup()
   vim.api.nvim_create_user_command("ClideInstallHooks", function()
     require("clide.status").install_hooks()
   end, { desc = "Install Claude Code status hooks into project settings" })
-
-  vim.api.nvim_create_user_command("ClideInstallMCP", function()
-    local state = require("clide").state
-    if not state.mcp_port then
-      vim.notify("clide: MCP server not running — start clide first", vim.log.levels.WARN)
-      return
-    end
-    require("clide.mcp_config").install(state.mcp_port)
-    vim.notify(
-      "clide: MCP config written to .mcp.json + .claude/settings.local.json",
-      vim.log.levels.INFO
-    )
-  end, { desc = "Write clide MCP server config for Claude Code" })
 end
 
 return M

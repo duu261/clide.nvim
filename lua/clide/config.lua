@@ -1,10 +1,15 @@
 local M = {}
 
+local VALID_FOLLOW = {
+  off = true,
+  jump = true,
+  notify = true,
+  both = true,
+}
+
 local defaults = {
   autostart = false,
-  sse_port = 42069,
   follow = "off",
-  auto_install_mcp = true,
   log_level = "info",
   terminal = {
     provider = "auto", -- auto | native | snacks | tmux | none
@@ -37,6 +42,9 @@ local defaults = {
 local current = vim.deepcopy(defaults)
 
 function M.setup(opts)
+  if opts and opts.follow ~= nil and not VALID_FOLLOW[opts.follow] then
+    error("invalid follow mode: " .. tostring(opts.follow))
+  end
   current = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
 end
 

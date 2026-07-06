@@ -1,6 +1,6 @@
 local M = {}
 
---- { server, clients[{client, rpc}], connected, child_job, mcp_port }
+--- { server, clients[{client, rpc}], connected }
 M.state = {}
 
 function M.setup(opts)
@@ -125,9 +125,6 @@ function M.start()
   M.state.server = server
   vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
 
-  -- Spawn or reattach to persistent MCP child process
-  require("clide.mcp").ensure_running(M.state)
-
   vim.api.nvim_create_autocmd("VimLeavePre", {
     group = vim.api.nvim_create_augroup("ClideLifecycle", { clear = true }),
     callback = M.stop,
@@ -141,8 +138,6 @@ function M.start()
 end
 
 function M.stop()
-  require("clide.mcp").stop(M.state)
-
   local state = M.state
   if state.server then
     require("clide.selection").disable()
