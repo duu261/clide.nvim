@@ -2,6 +2,9 @@ local M = {}
 
 local Path = require("plenary.path")
 local watcher = nil
+local spinner_frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }
+local spinner_idx = 0
+local spinner_timer = nil
 
 -- ponytail: single state file — two Neovim instances sharing it will clash.
 -- Per-port state files if multi-session lands in v2.
@@ -30,6 +33,17 @@ function M.setup()
       pcall(vim.cmd, "redrawstatus")
     end)
   )
+  if not spinner_timer then
+    spinner_timer = vim.defer_fn(function() end, 0)
+    vim.uv.new_timer():start(
+      200,
+      200,
+      vim.schedule_wrap(function()
+        spinner_idx = (spinner_idx % #spinner_frames) + 1
+        pcall(vim.cmd, "redrawstatus")
+      end)
+    )
+  end
 end
 
 function M.teardown()
@@ -37,6 +51,11 @@ function M.teardown()
     watcher:stop()
     watcher:close()
     watcher = nil
+  end
+  if spinner_timer then
+    spinner_timer:stop()
+    spinner_timer:close()
+    spinner_timer = nil
   end
 end
 
@@ -54,10 +73,10 @@ function M.get()
 end
 
 local icons = {
-  working = "󰚩 working",
-  waiting = "󰋗 waiting",
-  idle = "󰚩 idle",
-  disconnected = "󰚩 ─",
+  working = " working",
+  waiting = " waiting",
+  idle = " idle",
+  disconnected = " disconnected",
 }
 
 --- lualine component: require("clide.status").lualine
@@ -67,7 +86,7 @@ function M.lualine()
     return ""
   end
   local review = require("clide.review.queue").statusline()
-  local base = icons[s] or s
+  local base = s == "working" and (spinner_frames[spinner_idx] .. " working") or icons[s] or s
   if review ~= "" then
     return base .. " │ " .. review
   end
@@ -91,10 +110,14 @@ function M.hooks_config()
           hooks = {
             {
               type = "command",
-              command = 'sh -c \'case "${CLAUDE_TOOL_NAME:-}" in Edit|Write) '
-                .. 'file=$(printf "%s" "${CLAUDE_TOOL_INPUT:-}"'
-                .. ' | sed -n "s/.*\\"file_path\\"[[:space:]]*:[[:space:]]*\\"\\([^\\"]*\\)\\".*/\\1/p"); '
-                .. '[ -n "$file" ] && printf "%s\\n" "$file" > '
+              command = 'sh -c \'d=$(cat) && tool=$(printf "%s" "$d"'
+                .. ' | sed -n "s/.*\\"tool_name\\"[[:space:]]*:[[:space:]]*'
+                .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
+                .. ' && fp=$(printf "%s" "$d"'
+                .. ' | sed -n "s/.*\\"file_path\\"[[:space:]]*:[[:space:]]*'
+                .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
+                .. ' && case "$tool" in Edit|Write)'
+                .. ' [ -n "$fp" ] && printf "%s\\n" "$fp" > '
                 .. vim.fn.shellescape(signal_file)
                 .. ";; esac'",
             },
