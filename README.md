@@ -6,6 +6,9 @@ clide.nvim implements Claude Code IDE protocol (WebSocket-MCP) directly
 in Lua on `vim.uv`. When Claude proposes edits, they appear as hunks **inside
 your real buffers** - accept or reject each one, Zed/Cursor style.
 
+> **Status: in active development** (pre-1.0). Largely built with Claude Code -
+> human-steered, reviewed, and tested. APIs and config may change between tags.
+
 ## ✨ Features
 
 - **Pure Lua** - No Node, no Rust. Neovim >= 0.10 + `claude` CLI only.

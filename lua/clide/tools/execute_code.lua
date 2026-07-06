@@ -1,3 +1,4 @@
+-- ponytail: executeCode bypasses review by design.
 local tools = require("clide.tools")
 
 -- Lua 5.1/JIT compat: loadstring deprecated in 5.4 but that's not our runtime
