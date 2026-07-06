@@ -31,14 +31,18 @@ function M.attach(review, callbacks)
     M.set_hint(review)
   end
   for _, hunk in ipairs(review.hunks) do
+    local line_count = vim.api.nvim_buf_line_count(review.bufnr)
     local row = math.max(hunk.start_a - 1, 0)
+    if row > line_count then
+      row = line_count
+    end
     local virt_lines = {}
     for i = hunk.start_b, hunk.start_b + hunk.count_b - 1 do
       table.insert(virt_lines, { { "+ " .. review.new_lines[i], "ClideAdded" } })
     end
     local opts = {
       virt_lines = virt_lines,
-      virt_lines_above = hunk.count_a == 0 and hunk.start_a == 0,
+      virt_lines_above = row == 0,
       sign_text = "\227\148\131",
       sign_hl_group = "ClideAdded",
       invalidate = true,

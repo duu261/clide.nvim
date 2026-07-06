@@ -46,6 +46,84 @@ describe("selection", function()
     vim.cmd("normal! \27")
   end)
 
+  it("emits selection_changed after leaving single-line visual mode", function()
+    local captured = {}
+    selection.enable(function(method, params)
+      table.insert(captured, { method = method, params = params })
+    end)
+    -- Enter linewise visual on line 1, don't move, then leave
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.cmd("normal! V") -- enter linewise visual mode on line 1
+    vim.cmd("normal! \27") -- leave visual mode
+    -- Wait for debounce timer (100ms + buffer)
+    vim.wait(500, function()
+      return #captured >= 1
+    end)
+    selection.disable()
+    assert.equals(1, #captured, "exactly one notification fired")
+    local notif = captured[1]
+    assert.equals("selection_changed", notif.method)
+    assert.is_false(notif.params.selection.isEmpty)
+    assert.equals(0, notif.params.selection.start.line) -- line 1 → 0-based
+    assert.equals(1, notif.params.selection["end"].line) -- single line, end exclusive
+    assert.matches("alpha beta", notif.params.text)
+  end)
+
+  it("emits selection_changed after leaving single-line charwise visual mode", function()
+    local captured = {}
+    selection.enable(function(method, params)
+      table.insert(captured, { method = method, params = params })
+    end)
+    -- Enter charwise visual on line 1, select a few chars, don't move lines, then leave
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.cmd("normal! v4l") -- select "alpha"
+    vim.cmd("normal! \27") -- leave visual mode
+    vim.wait(500, function()
+      return #captured >= 1
+    end)
+    selection.disable()
+    -- May have received one notification from CursorMoved in visual mode + one from leaving;
+    -- at least one should have the correct selection content.
+    local has_alpha = false
+    for _, n in ipairs(captured) do
+      if n.params.text == "alpha" and not n.params.selection.isEmpty then
+        has_alpha = true
+        break
+      end
+    end
+    assert.is_true(has_alpha, "at least one notification contains 'alpha' selection")
+  end)
+
+  it("does not send duplicate notifications for the same selection", function()
+    local captured = {}
+    selection.enable(function(method, params)
+      table.insert(captured, { method = method, params = params })
+    end)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    -- Enter visual, stay, leave — all without moving cursor
+    vim.cmd("normal! V\27")
+    vim.wait(500, function()
+      return #captured >= 1
+    end)
+    -- Trigger another ModeChanged by entering/leaving insert mode
+    -- to ensure the previous selection isn't re-sent
+    local count_before = #captured
+    vim.cmd("normal! i\27") -- enter then leave insert mode
+    vim.wait(500, function()
+      return #captured > count_before
+    end)
+    selection.disable()
+    -- After insert-mode toggle, we should not have received another
+    -- copy of the same visual selection.
+    local visual_notifs = 0
+    for _, n in ipairs(captured) do
+      if n.method == "selection_changed" and not n.params.selection.isEmpty then
+        visual_notifs = visual_notifs + 1
+      end
+    end
+    assert.equals(1, visual_notifs, "exactly one non-empty selection_changed")
+  end)
+
   it("send_at_mention emits 0-based line range", function()
     local captured
     selection.enable(function(method, params)

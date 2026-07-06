@@ -26,7 +26,7 @@ function M.build()
       fileUrl = "file://" .. file_path,
       selection = {
         start = { line = spos[2] - 1, character = spos[3] - 1 },
-        ["end"] = { line = epos[2] - 1, character = epos[3] }, -- end exclusive
+        ["end"] = { line = epos[2], character = epos[3] }, -- end exclusive
         isEmpty = false,
       },
     }
@@ -43,17 +43,67 @@ function M.build()
   }
 end
 
+--- Build a selection from the '< '> marks, for use right after leaving
+--- visual mode (when "v"/"." marks are already gone but the marks persist).
+function M.build_from_marks()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local file_path = vim.api.nvim_buf_get_name(bufnr)
+  local spos = vim.fn.getpos("'<")
+  local epos = vim.fn.getpos("'>")
+  if spos[2] > epos[2] or (spos[2] == epos[2] and spos[3] > epos[3]) then
+    spos, epos = epos, spos
+  end
+  local vmode = vim.fn.visualmode()
+  local lines = vim.fn.getregion(spos, epos, { type = vmode })
+  return {
+    text = table.concat(lines, "\n"),
+    filePath = file_path,
+    fileUrl = "file://" .. file_path,
+    selection = {
+      start = { line = spos[2] - 1, character = spos[3] - 1 },
+      ["end"] = { line = epos[2], character = epos[3] }, -- end exclusive
+      isEmpty = false,
+    },
+  }
+end
+
 local function emit()
   if not notify_fn then
     return
   end
-  local ok, sel = pcall(M.build)
-  if ok and sel.filePath ~= "" then
-    if not sel.selection.isEmpty then
-      M._latest = sel
-    end
-    notify_fn("selection_changed", sel)
+  local mode = vim.fn.mode()
+  local ok, sel
+  if mode == "v" or mode == "V" or mode == "\22" then
+    -- Still in visual mode: build fresh selection
+    ok, sel = pcall(M.build)
+  elseif M._pending_selection then
+    -- Just left visual mode: use the selection captured on ModeChanged
+    sel = M._pending_selection
+    M._pending_selection = nil
+    ok = true
+  else
+    ok, sel = pcall(M.build)
   end
+  if not ok or not sel or sel.filePath == "" then
+    return
+  end
+  -- Deduplicate: skip if identical to the last sent selection
+  local ls = M._last_sent
+  if
+    ls
+    and ls.text == sel.text
+    and ls.selection.start.line == sel.selection.start.line
+    and ls.selection["end"].line == sel.selection["end"].line
+    and ls.selection.isEmpty == sel.selection.isEmpty
+    and ls.filePath == sel.filePath
+  then
+    return
+  end
+  if not sel.selection.isEmpty then
+    M._latest = sel
+  end
+  M._last_sent = sel
+  notify_fn("selection_changed", sel)
 end
 
 --- Enable debounced selection_changed notifications.
@@ -72,6 +122,29 @@ function M.enable(notify)
   vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "ModeChanged" }, {
     group = augroup,
     callback = function()
+      -- Capture visual selection synchronously while still in visual mode,
+      -- so that when emit() fires after the debounce window we still have
+      -- the visual region even if the mode has already changed to normal.
+      local mode = vim.fn.mode()
+      if mode == "v" or mode == "V" or mode == "\22" then
+        local ok, sel = pcall(M.build)
+        if ok and not sel.selection.isEmpty then
+          M._pending_selection = sel
+        end
+      else
+        -- ModeChanged fires AFTER the mode has already flipped, so a
+        -- single-line visual selection (no CursorMoved in between) never
+        -- hits the branch above. If we just left visual mode, rebuild the
+        -- selection from the '< '> marks instead of the (now gone) "v" mark.
+        local old_mode = vim.v.event.old_mode or ""
+        local first = old_mode:sub(1, 1)
+        if first == "v" or first == "V" or first == "\22" then
+          local ok, sel = pcall(M.build_from_marks)
+          if ok and sel and not sel.selection.isEmpty then
+            M._pending_selection = sel
+          end
+        end
+      end
       timer:stop()
       timer:start(100, 0, vim.schedule_wrap(emit))
     end,
