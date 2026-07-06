@@ -1,5 +1,8 @@
 local M = {}
 
+local pending_path
+local pending_timer = nil
+
 local function current_mode(opts)
   if opts.mode ~= nil then
     return opts.mode
@@ -12,6 +15,21 @@ local function current_modified(opts)
     return opts.modified
   end
   return vim.bo.modified
+end
+
+function M.queue(path)
+  pending_path = path
+  if pending_timer then
+    return
+  end
+  pending_timer = vim.defer_fn(function()
+    pending_timer = nil
+    local path_to_follow = pending_path
+    pending_path = nil
+    if path_to_follow then
+      M.handle(path_to_follow)
+    end
+  end, 10)
 end
 
 function M.handle(path, opts)

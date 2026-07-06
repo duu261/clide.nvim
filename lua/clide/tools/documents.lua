@@ -15,7 +15,7 @@ local function queue_follow(path)
     local path_to_follow = pending_follow_path
     pending_follow_path = nil
     if path_to_follow then
-      follow.handle(path_to_follow)
+      follow.queue(path_to_follow)
     end
   end)
 end
