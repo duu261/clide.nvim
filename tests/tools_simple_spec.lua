@@ -1,5 +1,6 @@
 describe("simple tools", function()
   local tools
+  local follow_calls
 
   local function call(name, args)
     local result, err
@@ -14,20 +15,27 @@ describe("simple tools", function()
   end
 
   before_each(function()
-    -- Clear all tool modules and the tools registry
+    follow_calls = {}
+    package.loaded["clide.follow"] = nil
     package.loaded["clide.tools"] = nil
     package.loaded["clide.selection"] = nil
+    package.loaded["clide.tools.vim_edit"] = nil
+    package.loaded["clide.tools.open_file"] = nil
+    package.loaded["clide.tools.open_diff"] = nil
+    package.preload["clide.follow"] = function()
+      return {
+        handle = function(path)
+          table.insert(follow_calls, path)
+        end,
+      }
+    end
     for _, mod in ipairs({
-      "open_file",
-      "open_diff",
-      "selection_tools",
       "editors",
       "workspace",
       "diagnostics",
       "documents",
       "tabs",
       "execute_code",
-      "vim_edit",
       "lua_eval",
       "search",
       "grep",
@@ -40,6 +48,22 @@ describe("simple tools", function()
     -- Verify tools are registered
     local tool_list = tools.list()
     assert.is_true(#tool_list > 0, "No tools registered after setup()")
+  end)
+
+  it("queues one follow per burst and keeps last file", function()
+    local a = vim.fn.tempname() .. ".txt"
+    local b = vim.fn.tempname() .. ".txt"
+    vim.fn.writefile({ "one" }, a)
+    vim.fn.writefile({ "two" }, b)
+
+    local result_a = call("vim_edit", { filePath = a, action = "replace", line = 1, text = "one-updated" })
+    local result_b = call("vim_edit", { filePath = b, action = "replace", line = 1, text = "two-updated" })
+    assert.is_not_nil(result_a)
+    assert.is_not_nil(result_b)
+    vim.wait(100)
+    assert.same({ b }, follow_calls)
+    vim.fn.delete(a)
+    vim.fn.delete(b)
   end)
 
   it("getWorkspaceFolders returns cwd", function()
