@@ -2,12 +2,54 @@ local M = {}
 
 local pending = nil
 local pending_timer = nil
+local signal_watcher = nil
+
 local VALID_MODE = {
   off = true,
   jump = true,
   notify = true,
   both = true,
 }
+
+function M.signal_file()
+  return vim.fs.joinpath(vim.fn.stdpath("state"), "clide", "follow_signal")
+end
+
+function M.setup()
+  local dir = vim.fs.dirname(M.signal_file())
+  vim.fn.mkdir(dir, "p")
+  signal_watcher = vim.uv.new_fs_event()
+  signal_watcher:start(
+    dir,
+    {},
+    vim.schedule_wrap(function(err, fname)
+      if err or not fname then
+        return
+      end
+      if fname ~= vim.fs.basename(M.signal_file()) then
+        return
+      end
+      local ok, lines = pcall(vim.fn.readfile, M.signal_file())
+      if not ok or not lines or #lines == 0 then
+        return
+      end
+      local path = vim.trim(lines[1])
+      if path ~= "" then
+        -- ponytail: race — second write between read and timer fire is lost.
+        -- Per-file tracking if burst coalescing measurably drops paths.
+        M.queue(path)
+      end
+    end)
+  )
+end
+
+function M.teardown()
+  if signal_watcher then
+    signal_watcher:stop()
+    signal_watcher:close()
+    signal_watcher = nil
+  end
+end
 
 local function current_mode(opts)
   if opts.mode ~= nil then

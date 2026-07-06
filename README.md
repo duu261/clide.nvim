@@ -194,6 +194,18 @@ Client B ──────────→ session B RPC ──→ tool handlers
 Selection notifications broadcast to all sessions. Disconnecting one client
 never affects others. `:ClideStop` closes all sessions cleanly.
 
+## 🔒 Security
+
+**Connected Claude has full editor control.** The `executeCode` tool lets Claude
+run arbitrary Lua in your Neovim session — file reads, writes, shell commands
+via `vim.fn.system`. Only connect Claude sessions you trust. The WS server binds
+`127.0.0.1` and uses CSPRNG auth tokens, so remote attackers cannot reach it,
+but the connected Claude session can do anything your Neovim can do.
+
+`luaEval` is a targeted subset that returns values without side effects;
+prefer it for read-only queries. `executeCode` is the escape hatch — disable it
+by removing the tool from the registry if you want a read-only integration.
+
 ## 🔬 Quality
 
 ```

@@ -80,11 +80,27 @@ function M.hooks_config()
   local function write_cmd(state)
     return "sh -c 'echo " .. state .. " > " .. vim.fn.shellescape(file) .. "'"
   end
+  local signal_file = require("clide.follow").signal_file()
   return {
     hooks = {
       PreToolUse = { { hooks = { { type = "command", command = write_cmd("working") } } } },
       Stop = { { hooks = { { type = "command", command = write_cmd("idle") } } } },
       Notification = { { hooks = { { type = "command", command = write_cmd("waiting") } } } },
+      PostToolUse = {
+        {
+          hooks = {
+            {
+              type = "command",
+              command = 'sh -c \'case "${CLAUDE_TOOL_NAME:-}" in Edit|Write) '
+                .. 'file=$(printf "%s" "${CLAUDE_TOOL_INPUT:-}"'
+                .. ' | sed -n "s/.*\\"file_path\\"[[:space:]]*:[[:space:]]*\\"\\([^\\"]*\\)\\".*/\\1/p"); '
+                .. '[ -n "$file" ] && printf "%s\\n" "$file" > '
+                .. vim.fn.shellescape(signal_file)
+                .. ";; esac'",
+            },
+          },
+        },
+      },
     },
   }
 end

@@ -121,6 +121,7 @@ function M.start()
   end)
 
   require("clide.status").setup()
+  require("clide.follow").setup()
 
   M.state.server = server
   vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
@@ -147,6 +148,7 @@ function M.stop()
 
   require("clide.terminal").close()
   require("clide.status").teardown()
+  require("clide.follow").teardown()
   M.state = {}
 end
 
