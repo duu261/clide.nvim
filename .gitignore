@@ -4,3 +4,4 @@ docs/superpowers/
 .deps/
 .mcp.json
 doc/tags
+.headroom/

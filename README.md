@@ -94,7 +94,7 @@ require("clide").setup({
 })
 ```
 
-### Follow mode
+### Follow mode ✅
 
 - `"off"` - no follow action
 - `"jump"` - open last Claude-written file
