@@ -81,116 +81,17 @@ Steps:
 
 thougt: make a way i can also interact to claude via nvim no need to swith to it can enhnace ux
 
-## H6 — openFile drives editor
+## H6 — Session priming via SessionStart hook
 
 Steps:
 
-1. Focus in nvim, cursor in some unrelated file.
-2. Ask Claude: "open lua/clide/health.lua in my editor at the claude
-   binary check".
+1. `:ClideStart` to launch Claude via clide.
+2. Read first response — expect Claude already knows about mcp__ide__
+   tools without discovery turns or tool polling.
+3. Ask Claude: "open lua/clide/health.lua at the claude binary found line".
 
-Expect: nvim opens that file in a normal file window (never terminal
-split), cursor lands on matched text. If Claude passes start/end text,
-range is visually selected.
-second ai manage to do is but cost alot thinking? idk wtf is this
-how is the claude do this btw? they seems clueless about is opened file but not correct line idk is the code fasle or is the behavor of ws and claude not correctj
-ai seems dont know they connect to nvim, have to waste token to know and think how to do this = inconsistent to each ai
-chat log
-❯ do this
-⧉ Selected 3 lines from docs/human_test_plan.md in Neovim
-
-∴ They selected lines 83-85 from the test plan. This is test step about follow mode — auto-jumping nvim to file Claude opens. They want me to run this test.
-
-Let me read the test plan to understand the full context of this test.
-
-● Read(/home/duu/Projects/clide.nvim/docs/human_test_plan.md · lines 75-104)
-Read 30 lines
-
-∴ They selected lines 83-85 which is the expect part of H6 — follow mode test. They want me to ask Claude to "open lua/clide/health.lua in my editor at the claude binary check".
-
-This is the manual test where I act as the Claude CLI user and they're the Neovim user. They want me to ask Claude to open the file.
-
-Wait - I am Claude Code in a terminal. They want me to run the claude CLI command to ask it to open the file. Let me check if claude is available and the session is set up.
-
-Actually, looking at the test plan context — this is testing the follow mode where Claude (the claude CLI) calls the ide tool to open a file, and clide.nvim handles that by opening it in Neovim.
-
-They want me to run this command in their configured claude CLI. Let me check the env.
-
-Claude CLI session running in tmux split next to nvim?
-
-ANTHROPIC_BASE_URL=http://127.0.0.1:8787 DEEPSEEK_MODE=off claude
-
-If already running, send prompt:
-
-open lua/clide/health.lua in my editor at the claude binary check
-
-Want me to start claude session and send that?
-
-✻ Brewed for 6s
-
-❯ u are that claude?
-
-∴ They're asking if I am the Claude CLI that the test plan references. No — I'm Claude Code (the coding agent in their terminal). The test plan H6 is about the claude CLI (the chat client) calling the ide tool to open a file, and clide.nvim's follow mode auto-jumping to it.
-
-So the test requires:
-
-1. A running claude CLI session (the AI chat client)
-2. Neovim running with clide.nvim loaded
-3. The user telling the claude CLI to open a file
-
-I'm not the claude CLI chat session. I'm Claude Code. So they need to actually run the claude CLI separately, or use me to drive the test.
-
-They want me to run the test by starting/sending to a claude CLI session. Let me offer that.
-
-No — I'm Claude Code (coding agent). Test H6 needs separate claude CLI chat session.
-
-I can:
-
-- Start claude CLI session in tmux pane, send the prompt
-- You talk to it, verify nvim opens file
-
-Want me to fire it up?
-
-✻ Churned for 3s
-
-❯ i litterally send u line via ws and u still think u not connect to is?
-
-Thought for 2s
-
-Ah right — clide bridge active. Run openFile tool at that location.
-
-Let me check my tool schema for file opening.
-
-●
-
-∴ I only have mcp__ide__executeCode and mcp__ide__getDiagnostics — no openFile tool directly. But the openFile tool is one of the MCP tools that clide.nvim registers internally. Let me check the tools registry.
-
-Actually, looking at the CLAUDE.md — "the 17 MCP protocol tools" — one of them is openFile. But that's a tool of the protocol, not exposed to me as an MCP tool. The claude CLI would call that tool, not me.
-
-Wait — but the user says they sent the line via WS. Meaning this Claude Code session IS connected through clide.nvim's WS. So my mcp__ide__executeCode runs Lua in their nvim.
-
-So I can use mcp__ide__executeCode to execute vim commands to open the file. Let me do that:
-
-vim.cmd("edit lua/clide/health.lua")
--- then search for the match
-vim.fn.search("claude binary check")
-
-Let me do that.
-
-mcp__ide__executeCode runs Lua in your nvim. Open file + jump to symbol:
-
-● ide - executeCode (MCP)(code: "vim.cmd(\"edit lua/clide/health.lua\")\nvim.fn.search(\"claude binary check\")\n")
-null
-
-∴ null return but no error — likely worked. File should be open in nvim with cursor at the "claude binary check" line.
-
-Let me verify by running getDiagnostics or just checking the buffer.
-
-Null return — clean. File lua/clide/health.lua should open in buffer, cursor on "claude binary check".
-
-Wanna verify? :echo expand('%') . ' ' . line('.') or we move to next test.
-
-✻ Brewed for 11s
+Expect: Claude uses openFile directly (not executeCode). On success,
+nvim opens health.lua:21, cursor on `health.ok("claude binary found: ...")`.
 
 ## H7 — Inline review: mixed accept/reject
 

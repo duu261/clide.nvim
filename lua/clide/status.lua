@@ -124,6 +124,33 @@ function M.hooks_config()
           },
         },
       },
+      SessionStart = {
+        {
+          hooks = {
+            {
+              type = "command",
+              -- no apostrophes in the snippet: it lives inside a
+              -- single-quoted sh string
+              command = 'sh -c \'[ -n "$CLAUDE_CODE_SSE_PORT" ]'
+                .. ' && printf "%s\\n"'
+                .. ' "You are connected to a live Neovim editor'
+                .. " via clide.nvim (WebSocket IDE protocol). IDE tools"
+                .. ' are available under the mcp__ide__ prefix:"'
+                .. ' "- openFile: navigate/select in editor.'
+                .. " startText/endText do LITERAL substring match - text must"
+                .. " appear exactly in the file; read the file first if unsure."
+                .. ' Prefer this over executeCode for opening files."'
+                .. ' "- openDiff: show diff for user review"'
+                .. ' "- executeCode: run Lua inside the nvim process"'
+                .. ' "- getDiagnostics, saveDocument,'
+                .. ' checkDocumentDirty, and more via tools/list"'
+                .. ' "Visual selections made by the user are pushed to'
+                .. ' you automatically (at_mentioned) - no polling needed."'
+                .. "; exit 0'",
+            },
+          },
+        },
+      },
     },
   }
 end
