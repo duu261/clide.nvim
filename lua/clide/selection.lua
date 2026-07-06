@@ -84,7 +84,7 @@ local function emit()
   else
     ok, sel = pcall(M.build)
   end
-  if not ok or not sel or sel.filePath == "" then
+  if not ok or not sel then
     return
   end
   -- Deduplicate: skip if identical to the last sent selection
