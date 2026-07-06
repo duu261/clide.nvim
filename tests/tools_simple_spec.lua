@@ -14,6 +14,8 @@ describe("simple tools", function()
     return vim.json.decode(result.content[1].text)
   end
 
+  -- H9: ClideReviewTab escape hatch, spot 1
+
   before_each(function()
     follow_calls = {}
     package.loaded["clide.follow"] = nil
@@ -143,6 +145,8 @@ describe("simple tools", function()
     local result = call("executeCode", { code = "1+1" })
     assert.equals("2", result.content[1].text)
   end)
+
+  -- H9: ClideReviewTab escape hatch, spot 2
 
   it("executeCode returns errors for bad syntax", function()
     local result = call("executeCode", { code = "1++1" })

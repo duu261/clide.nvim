@@ -49,7 +49,9 @@ local function emit()
   end
   local ok, sel = pcall(M.build)
   if ok and sel.filePath ~= "" then
-    M._latest = sel
+    if not sel.selection.isEmpty then
+      M._latest = sel
+    end
     notify_fn("selection_changed", sel)
   end
 end
