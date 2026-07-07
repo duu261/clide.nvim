@@ -176,6 +176,11 @@ function M.stop(server)
       client.sock:write(frame.encode(frame.CLOSE, ""))
       client.sock:close()
     end
+    if server.opts.on_disconnect then
+      vim.schedule(function()
+        server.opts.on_disconnect(client)
+      end)
+    end
   end
   server.clients = {}
   if server.handle and not server.handle:is_closing() then

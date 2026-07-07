@@ -52,4 +52,37 @@ describe("ws server", function()
       ws.stop(s)
     end
   end)
+
+  it("calls on_disconnect for each client when server is stopped", function()
+    local disconnected = {}
+    local server = assert(ws.start({
+      auth_token = "tok",
+      on_disconnect = function(client)
+        table.insert(disconnected, client)
+      end,
+    }))
+
+    local sock = vim.uv.new_tcp()
+    sock:connect("127.0.0.1", server.port, function(err)
+      assert(not err, err)
+      sock:write(
+        "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\n"
+          .. "Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+          .. "Sec-WebSocket-Version: 13\r\n"
+          .. "x-claude-code-ide-authorization: tok\r\n\r\n"
+      )
+    end)
+
+    vim.wait(500, function()
+      return #server.clients >= 1
+    end)
+    assert.equals(1, #server.clients, "client connected")
+
+    ws.stop(server)
+
+    vim.wait(200, function()
+      return #disconnected >= 1
+    end)
+    assert.equals(1, #disconnected, "on_disconnect called once")
+  end)
 end)
