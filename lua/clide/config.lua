@@ -9,6 +9,7 @@ local VALID_FOLLOW = {
 
 local defaults = {
   autostart = false,
+  execute_code = true, -- bool - set false to disable executeCode tool
   follow = "off",
   log_level = "info",
   terminal = {

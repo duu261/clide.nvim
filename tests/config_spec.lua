@@ -19,6 +19,15 @@ describe("config", function()
     assert.equals("auto", config.get().terminal.provider)
   end)
 
+  it("defaults execute_code to true", function()
+    assert.equals(true, config.get().execute_code)
+  end)
+
+  it("allows disabling execute_code", function()
+    config.setup({ execute_code = false })
+    assert.equals(false, config.get().execute_code)
+  end)
+
   it("rejects invalid follow mode", function()
     assert.has_error(function()
       config.setup({ follow = "notifiy" })

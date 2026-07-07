@@ -20,6 +20,16 @@ autostart = false  -- bool
 Start server + launch Claude when Neovim loads. Off by default - most users
 prefer `:ClideStart` on demand.
 
+### `execute_code`
+
+```lua
+execute_code = true  -- bool
+```
+
+Enable the `executeCode` tool. Set `false` for read-only integrations.
+The tool evaluates arbitrary Lua in your Neovim process — disable it when
+you want Claude to edit only through `vim_edit` + inline review.
+
 ### `follow`
 
 ```lua

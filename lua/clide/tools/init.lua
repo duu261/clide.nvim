@@ -70,6 +70,7 @@ end
 
 --- Load every tool module (each self-registers at require time).
 function M.setup()
+  local cfg = require("clide.config").get()
   for _, mod in ipairs({
     "open_file",
     "open_diff",
@@ -86,7 +87,9 @@ function M.setup()
     "grep",
     "diagnose",
   }) do
-    require("clide.tools." .. mod)
+    if mod ~= "execute_code" or cfg.execute_code ~= false then
+      require("clide.tools." .. mod)
+    end
   end
 end
 
