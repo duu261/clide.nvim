@@ -1,3 +1,4 @@
+-- same-file follow skip: dirty test
 local M = {}
 
 local pending = nil
@@ -35,7 +36,7 @@ function M.setup()
       end
       local path = vim.trim(lines[1])
       if path ~= "" then
-        -- ponytail: race — second write between read and timer fire is lost.
+        -- ponytail: same-buf skip prevents useless split on self-follow
         -- Per-file tracking if burst coalescing measurably drops paths.
         M.queue(path)
       end
@@ -125,7 +126,8 @@ function M.handle(path, opts)
       vim.notify(path, vim.log.levels.INFO)
     end
     if open then
-      if modified then
+      local same_buf = path == vim.fn.expand("%:p")
+      if modified and not same_buf then
         vim.cmd.split()
       end
       vim.cmd.edit(vim.fn.fnameescape(path))
