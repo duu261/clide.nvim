@@ -38,6 +38,18 @@ describe("clide lifecycle", function()
     assert.is_true(closed)
   end)
 
+  it("stop then start recreates server and a fresh session table", function()
+    clide.start()
+    local old_server = clide.state.server
+    assert.is_table(old_server.sessions)
+    clide.stop()
+    clide.start()
+    assert.is_not_nil(clide.state.server)
+    assert.is_not.equal(old_server, clide.state.server)
+    assert.is_table(clide.state.server.sessions)
+    assert.is_nil(next(clide.state.server.sessions))
+  end)
+
   it("start is idempotent", function()
     clide.start()
     local port = clide.state.server.port
