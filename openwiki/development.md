@@ -13,7 +13,6 @@ git switch -c chore/<name>  # lint, docs, CI
 - For parallel work: `git worktree add ../clide-<feature> feat/<name>`
 - Commits must be conventional: `feat:`, `fix:`, `test:`, `docs:`, `chore:`
 
-Source: `/docs/WORKFLOW.md` lines 4-16.
 
 ## Development Cycle
 
@@ -21,7 +20,6 @@ Source: `/docs/WORKFLOW.md` lines 4-16.
 edit → stylua → luacheck → make test → commit
 ```
 
-Source: `/docs/WORKFLOW.md` lines 19-20.
 
 ### Make targets
 
@@ -57,6 +55,17 @@ Source: `/Makefile` and `/CLAUDE.md` lines 38-41.
 - Luacheck: custom config (source: `/.luacheckrc` — unsupported in read), known ignore on `frame.lua:143` (documented shim).
 - Lua LSP config in `/.luarc.json`: `diagnostics.globals: ["vim"]`, test files also get `describe`, `it`, `assert`, etc.
 
+## Verification Gates
+
+```bash
+make test > /tmp/test.log 2>&1; echo "exit=$?"
+# On green:
+make lint
+git commit
+```
+
+Don't `&&`-chain test→lint→commit. Red test gate still commits if chained.
+
 ## Pre-Release Checklist
 
 Before tagging a new version:
@@ -69,7 +78,6 @@ Before tagging a new version:
 6. `doc/tags` not committed (gitignored — plugin managers regenerate).
 7. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
 
-Source: `/docs/WORKFLOW.md` lines 29-38.
 
 ## Provider Roles (when using AI to build)
 
@@ -81,7 +89,6 @@ Source: `/docs/WORKFLOW.md` lines 29-38.
 
 **Rule**: Opus main thread = orchestrator. Delegate implementation to Sonnet/Haiku subagents.
 
-Source: `/docs/WORKFLOW.md` lines 41-49.
 
 ## Token Budget (AI-assisted development)
 
@@ -90,23 +97,31 @@ Source: `/docs/WORKFLOW.md` lines 41-49.
 - Use codegraph/codebase-memory before grep/Read for code understanding.
 - Append to progress files with `printf '...' >>`, not repeated Edit calls.
 
-Source: `/docs/WORKFLOW.md` lines 51-57.
+## Bootstrap / Dry-Run / Doctor
+
+```bash
+# Is clide running?
+ss -tlnp | grep nvim
+
+# Auth token (never log this)
+cat ~/.claude/ide/*.lock | jq .authToken
+```
+
+## Neovim Plugin Lifecycle
+
+clide.nvim must feel like a Neovim plugin, not a server strapped to Neovim:
+
+1. **Lazy-load**: `plugin/clide.lua` defers `require("clide")` until `:ClideStart`.
+2. **Setup idempotent**: calling `setup()` twice = no-op.
+3. **Teardown clean**: `:ClideStop` closes WS, timers, lock files.
+4. **Health check**: `:checkhealth clide` verifies `claude` CLI, plenary, tmux (if used), port availability.
+5. **Config get() pattern**: always read through `config.get()`, never access module state directly.
 
 ## Hard Constraints
 
-From `/CLAUDE.md` lines 11-21 (applies to all contributors, not just AI):
-
-- **Pure Lua only.** No Node.js, no Rust. Runtime deps: Neovim >= 0.10, `claude` CLI, `plenary.nvim`.
-- **Never wrap event-driven server callbacks in `plenary.async`** — use sync patterns only.
-- **Both WS server binds `127.0.0.1` only** — never `0.0.0.0`.
-- **Auth token**: `vim.uv.random(16)` hex — never `math.random`. Never log the token.
-- **Protocol values are exact**: `protocolVersion = "2025-03-26"`, `ideName = "Neovim"`, `transport = "ws"`, openDiff responses `FILE_SAVED`/`DIFF_REJECTED`.
-- **All uv/socket callbacks wrapped in `pcall`** — never crash Neovim on malformed input.
-- **MCP config writes to `.mcp.json`**; auto-approve in `.claude/settings.local.json`. Both files gitignored (dynamic ports).
+See [CLAUDE.md](../CLAUDE.md#hard-constraints) for the canonical list. Applies to all contributors, not just AI.
 
 ## Scope Boundaries
-
-From `/docs/SCOPE.md`:
 
 **In scope**: Claude Code IDE protocol, WebSocket MCP, inline review, multi-session, terminal providers, follow mode, health checks, vimdoc.
 
@@ -129,7 +144,7 @@ From `/docs/SCOPE.md`:
 | v0.5 | API stability, CONFIG.md | Done |
 | v1.0 | Tag, LuaRocks publish | Pre-release checklist complete, tag pending |
 
-Source: `/docs/SCOPE.md` lines 45-82.
+Source: `/docs/ROADMAP.md`.
 
 ## CI
 

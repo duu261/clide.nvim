@@ -1,3 +1,4 @@
+<!-- openwiki:auto-generated — run `openwiki --update` to refresh. Do not edit manually. -->
 # clide.nvim Quickstart
 
 > **Repository**: [duu261/clide.nvim](https://github.com/duu261/clide.nvim)
