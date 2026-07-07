@@ -156,3 +156,18 @@ Distilled from the handoff confusion diary of the session behind `dbea330`:
   `local x = f({ ...closures using x... })` works even though `x` is nil at
   closure creation. luacheck's "accessing undefined variable" there is a
   false positive.
+
+## Live debugging via clide itself
+
+When connected to the running nvim (mcp__ide__ tools), debug the plugin
+in-process instead of reasoning from source:
+
+- `executeCode` can inspect live state (`require("clide").state`,
+  `require("clide.selection")._last_sent`) and install probe autocmds.
+- Hot-patch: inject the candidate fix as a timer/autocmd via `executeCode`,
+  have the user reproduce, verify, THEN write it into the module. Avoids a
+  restart cycle per iteration (restart also drops the Claude connection).
+- Never trust that an autocmd event fires on this machine — probe it first.
+  Verified 2026-07-08: ModeChanged and FocusLost do NOT reach autocmds in
+  the user's tmux/terminal setup; CursorMoved does. Hence the 200ms visual
+  poll in selection.lua.
