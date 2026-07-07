@@ -1,11 +1,6 @@
 {
-  "updatedAt": "2026-08-10T00:00:00Z",
-  "gitHead": "no-git-available",
-  "pages": [
-    "openwiki/quickstart.md",
-    "openwiki/architecture.md",
-    "openwiki/development.md",
-    "openwiki/tools-and-protocol.md"
-  ],
-  "summary": "Initial OpenWiki documentation for clide.nvim. Covers quickstart, architecture (module map, WS server lifecycle, RPC dispatch, tool registry, review pipeline, terminal providers, config model, lock file protocol), development (branch discipline, testing, linting, release checklist, hard constraints, scope, roadmap, CI), and the 17 MCP tools with full protocol stack details."
+  "updatedAt": "2026-07-07T06:22:01.854Z",
+  "command": "update",
+  "gitHead": "bfc58e125c352501b9b69a47e534c9fe362a528f",
+  "model": "deepseek-v4-flash"
 }
