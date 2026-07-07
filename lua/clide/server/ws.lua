@@ -177,9 +177,9 @@ function M.stop(server)
       client.sock:close()
     end
     if server.opts.on_disconnect then
-      vim.schedule(function()
-        server.opts.on_disconnect(client)
-      end)
+      -- synchronous: M.stop() wipes plugin state right after this returns;
+      -- a vim.schedule'd callback would run post-wipe and silently no-op
+      pcall(server.opts.on_disconnect, client)
     end
   end
   server.clients = {}

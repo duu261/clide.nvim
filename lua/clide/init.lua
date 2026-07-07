@@ -96,6 +96,7 @@ function M.start()
     on_disconnect = function(client)
       local sessions = M.state.server and M.state.server.sessions
       if not sessions then
+        log.log("warn", "on_disconnect after state wipe: session table gone")
         return
       end
       local dc_id = "?"
