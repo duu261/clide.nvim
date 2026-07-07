@@ -14,7 +14,7 @@ plan + tester notes in `docs/human_test_plan_v1.md`).
 - **T16 disconnect notify** — root-caused and fixed in `ca73a71`: ws.stop's
   vim.schedule'd on_disconnect raced `M.stop()`'s `M.state = {}` wipe; now
   called synchronously. Verify manually after next nvim restart.
-- **Stop/start lifecycle spec, init level** — ws-layer sync-disconnect
+- **Stop/start lifecycle** — covered: ws sync-disconnect (ws_spec) + init stop/start recreation (init_spec, 4864e8d+). Remaining gap: none.
   guarantee now asserted in ws_spec.lua. Full `:ClideStop` + `:ClideStart`
   init-level spec still missing (M.start opens a terminal — needs the
   `none` provider or a stub to run headless).
