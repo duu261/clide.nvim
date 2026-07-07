@@ -30,6 +30,18 @@ Enable the `executeCode` tool. Set `false` for read-only integrations.
 The tool evaluates arbitrary Lua in your Neovim process — disable it when
 you want Claude to edit only through `vim_edit` + inline review.
 
+### `diagnostics_push`
+
+```lua
+diagnostics_push = "error"  -- "error" | "warn" | "info" | "hint" | false
+```
+
+Minimum severity for live `diagnostics_changed` pushes (fired on
+`DiagnosticChanged`, 500ms debounce). Every push lands in Claude's context
+window and costs tokens; the default only forwards errors. Set `"warn"` to
+include warnings, `false` to disable live pushes entirely (Claude can still
+call `getDiagnostics` on demand, which always returns everything).
+
 ### `follow`
 
 ```lua

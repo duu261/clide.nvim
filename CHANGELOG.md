@@ -6,6 +6,18 @@ versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `diagnostics_push` config key — min severity for live `diagnostics_changed`
+  pushes (default `"error"`; `false` disables). Cuts token cost of style-lint
+  noise entering Claude's context.
+
+### Fixed
+- Visual selection now reaches Claude on tmux pane switch without Esc —
+  200ms visual-mode poll replaces unreliable ModeChanged/FocusLost delivery.
+- "Claude disconnected" notify on `:ClideStop` — on_disconnect ran after the
+  state wipe and silently no-op'd; now synchronous in `ws.stop()`.
+- Dropped notifications now warn in `:ClideLog` instead of failing silently.
+
 ## [0.3.2] — 2026-07-07
 
 ### Added

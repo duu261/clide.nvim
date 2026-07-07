@@ -10,6 +10,10 @@ local VALID_FOLLOW = {
 local defaults = {
   autostart = false,
   execute_code = true, -- bool - set false to disable executeCode tool
+  -- min severity pushed via diagnostics_changed: "error" | "warn" | "info" | "hint" | false (off)
+  -- default "error": every push lands in Claude's context and costs tokens;
+  -- style warnings rarely change what Claude does mid-edit
+  diagnostics_push = "error",
   follow = "off",
   log_level = "info",
   terminal = {

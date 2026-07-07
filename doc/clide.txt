@@ -36,6 +36,8 @@ Defaults shown. All keys optional - |clide-setup| works without arguments.
 >lua
   require("clide").setup({
     autostart = false,
+    execute_code = true,
+    diagnostics_push = "error",
     follow = "off",
     log_level = "info",
     terminal = {
@@ -66,6 +68,14 @@ Defaults shown. All keys optional - |clide-setup| works without arguments.
     },
   })
 <
+
+execute_code: true | false
+  false removes the executeCode tool (read-only integration).
+
+diagnostics_push: "error" | "warn" | "info" | "hint" | false
+  Minimum severity for live diagnostics_changed pushes (500ms debounce).
+  Every push enters Claude's context and costs tokens; default forwards
+  errors only. false disables pushes; getDiagnostics still works.
 
 follow: "off" | "jump" | "notify" | "both"
   After Claude writes files: do nothing, jump, notify, or both. Writes

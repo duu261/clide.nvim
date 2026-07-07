@@ -147,9 +147,19 @@ function M.start()
   local diag_group = vim.api.nvim_create_augroup("ClideDiagnostics", { clear = true })
   local diag_timer = nil
   local severity_map = { "Error", "Warning", "Information", "Hint" }
+  -- every push lands in Claude's context window; filter to what changes behavior
+  local push_cfg = require("clide.config").get().diagnostics_push
+  local min_severity = push_cfg
+    and ({ error = "ERROR", warn = "WARN", info = "INFO", hint = "HINT" })[push_cfg]
+  local diag_filter = min_severity
+      and { severity = { min = vim.diagnostic.severity[min_severity] } }
+    or nil
   vim.api.nvim_create_autocmd("DiagnosticChanged", {
     group = diag_group,
     callback = function(args)
+      if not push_cfg then
+        return
+      end
       if diag_timer then
         diag_timer:stop()
         diag_timer:close()
@@ -167,7 +177,8 @@ function M.start()
             return
           end
           local by_file = {}
-          local diags = args.buf and vim.diagnostic.get(args.buf) or vim.diagnostic.get()
+          local diags = args.buf and vim.diagnostic.get(args.buf, diag_filter)
+            or vim.diagnostic.get(nil, diag_filter)
           for _, d in ipairs(diags) do
             local name = vim.api.nvim_buf_get_name(d.bufnr)
             if name ~= "" then
