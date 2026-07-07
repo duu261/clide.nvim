@@ -2,6 +2,7 @@ local M = {}
 
 local notify_fn
 local timer
+local poll_timer
 local augroup
 
 --- Build a selection object from the current buffer/mode.
@@ -124,6 +125,26 @@ function M.enable(notify)
   end
   notify_fn = notify
   timer = vim.uv.new_timer()
+  -- ponytail: 200ms visual-mode poll. ModeChanged/FocusLost delivery proved
+  -- unreliable (tmux/terminal dependent) — plain `V` + pane switch emits no
+  -- event at all. Poll only acts in visual mode; dedup in emit() stops spam.
+  if poll_timer then
+    pcall(function()
+      poll_timer:stop()
+      poll_timer:close()
+    end)
+  end
+  poll_timer = vim.uv.new_timer()
+  poll_timer:start(
+    200,
+    200,
+    vim.schedule_wrap(function()
+      local m = vim.fn.mode()
+      if m == "v" or m == "V" or m == "\22" then
+        emit()
+      end
+    end)
+  )
   augroup = vim.api.nvim_create_augroup("ClideSelection", { clear = true })
   vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "ModeChanged", "FocusLost" }, {
     group = augroup,
@@ -217,6 +238,13 @@ function M.disable()
       timer:close()
     end)
     timer = nil
+  end
+  if poll_timer then
+    pcall(function()
+      poll_timer:stop()
+      poll_timer:close()
+    end)
+    poll_timer = nil
   end
   if augroup then
     vim.api.nvim_del_augroup_by_id(augroup)

@@ -124,6 +124,8 @@ function M.start()
   server.sessions = {}
   selection.enable(function(method, params)
     if not server.sessions then
+      -- should never fire: sessions is set right above and survives until GC
+      log.log("warn", "dropping " .. method .. ": server.sessions is nil")
       return
     end
     for _, s in pairs(server.sessions) do
@@ -160,6 +162,7 @@ function M.start()
           diag_timer:close()
           diag_timer = nil
           if not server.sessions then
+            log.log("warn", "dropping diagnostics_changed: server.sessions is nil")
             return
           end
           local by_file = {}
