@@ -80,6 +80,32 @@ local icons = {
 }
 
 --- lualine component: require("clide.status").lualine
+--- lualine: connected client count. Returns empty when stopped or zero clients.
+function M.client_count()
+  local state = require("clide").state
+  if not state.server then
+    return ""
+  end
+  local count = state.client_count or 0
+  if count < 2 then
+    return ""
+  end
+  return count .. " clients"
+end
+
+--- lualine: last tool Claude called. Returns empty when nothing dispatched yet.
+function M.last_tool()
+  local state = require("clide").state
+  if not state.server then
+    return ""
+  end
+  local name = require("clide.tools")._last_tool
+  if not name then
+    return ""
+  end
+  return " " .. name
+end
+
 function M.lualine()
   local s = M.get()
   if s == "stopped" then

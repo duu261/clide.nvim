@@ -135,11 +135,36 @@ follow opens in a split so Neovim never hits `E37`.
 ## 📊 Statusline
 
 ```lua
-require("clide.status").lualine
+require("clide.status").lualine       -- spinner + review count
+require("clide.status").client_count  -- "N clients" (2+ only)
+require("clide.status").last_tool     -- last tool Claude called
 ```
 
 States: working, waiting, idle, disconnected - driven by Claude Code hooks.
-Run `:ClideInstallHooks` once per project. Includes pending review count.
+Run `:ClideInstallHooks` once per project.
+
+### lualine
+
+```lua
+{ sections = { lualine_x = { require("clide.status").lualine } } }
+```
+
+### mini.statusline
+
+```lua
+MiniStatusline.section_filename = function()
+  return require("clide.status").lualine()
+end
+```
+
+### heirline
+
+```lua
+{ provider = function() return require("clide.status").lualine() end }
+```
+
+All three segments work the same way — `client_count` and `last_tool` return
+empty strings when there is nothing to show, so they collapse gracefully.
 
 ## 🧠 How it works
 

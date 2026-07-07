@@ -81,6 +81,8 @@ function M.start()
       }
       table.insert(M.state.clients, session)
       M.state.connected = true
+      M.state.client_count = (M.state.client_count or 0) + 1
+      M.state.client_count = (M.state.client_count or 0) + 1
       log.log("info", "claude connected")
       vim.schedule(function()
         vim.notify("clide: Claude connected", vim.log.levels.INFO)
@@ -97,6 +99,7 @@ function M.start()
         end
       end
       M.state.connected = next(M.state.clients) ~= nil
+      M.state.client_count = math.max(0, (M.state.client_count or 1) - 1)
       log.log("info", "claude disconnected")
       vim.schedule(function()
         vim.notify("clide: Claude disconnected", vim.log.levels.WARN)

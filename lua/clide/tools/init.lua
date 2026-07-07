@@ -40,12 +40,16 @@ function M.json_result(tbl)
 end
 
 --- respond(result, err) sends the JSON-RPC response for this call.
+M._last_tool = nil
+
 function M.call(name, args, respond)
+  M._last_tool = name
   local def = registry[name]
   if not def then
     respond(nil, { code = -32602, message = "Unknown tool: " .. name })
     return
   end
+  M._last_tool = name
   local start = vim.uv.hrtime()
   local ok, result = pcall(def.handler, args, respond)
   local elapsed = math.floor((vim.uv.hrtime() - start) / 1000000 + 0.5)
@@ -58,6 +62,10 @@ function M.call(name, args, respond)
   if result ~= M.DEFER then
     respond(result)
   end
+end
+
+function M.last_tool_name()
+  return M._last_tool
 end
 
 --- Load every tool module (each self-registers at require time).
