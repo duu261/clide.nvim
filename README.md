@@ -205,6 +205,12 @@ via `vim.fn.system`. Only connect Claude sessions you trust. The WS server binds
 `127.0.0.1` and uses CSPRNG auth tokens, so remote attackers cannot reach it,
 but the connected Claude session can do anything your Neovim can do.
 
+Two consequences worth knowing: `executeCode` edits **bypass the inline review
+flow** — changes land with no accept/reject hunks — and Claude Code's
+permission prompt is the **only** gate on each call. Don't run auto-accept
+(`bypassPermissions`) mode with the IDE connection up unless you fully trust
+the session.
+
 `luaEval` is a targeted subset that returns values without side effects;
 prefer it for read-only queries. `executeCode` is the escape hatch — disable it
 by removing the tool from the registry if you want a read-only integration.
