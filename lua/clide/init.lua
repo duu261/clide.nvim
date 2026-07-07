@@ -82,7 +82,6 @@ function M.start()
       table.insert(M.state.clients, session)
       M.state.connected = true
       M.state.client_count = (M.state.client_count or 0) + 1
-      M.state.client_count = (M.state.client_count or 0) + 1
       log.log("info", "claude connected")
       vim.schedule(function()
         vim.notify("clide: Claude connected", vim.log.levels.INFO)
@@ -129,6 +128,62 @@ function M.start()
   require("clide.status").setup()
   require("clide.follow").setup()
 
+  -- ponytail: global debounce timer, single diag push across buffers.
+  -- Per-buffer timers if collision proves measurable in practice.
+  local diag_group = vim.api.nvim_create_augroup("ClideDiagnostics", { clear = true })
+  local diag_timer = nil
+  local severity_map = { "Error", "Warning", "Information", "Hint" }
+  vim.api.nvim_create_autocmd("DiagnosticChanged", {
+    group = diag_group,
+    callback = function(args)
+      if diag_timer then
+        diag_timer:stop()
+        diag_timer:close()
+      end
+      diag_timer = vim.uv.new_timer()
+      diag_timer:start(
+        500,
+        0,
+        vim.schedule_wrap(function()
+          diag_timer:stop()
+          diag_timer:close()
+          diag_timer = nil
+          if not M.state.clients then
+            return
+          end
+          local by_file = {}
+          local diags = args.buf and vim.diagnostic.get(args.buf) or vim.diagnostic.get()
+          for _, d in ipairs(diags) do
+            local name = vim.api.nvim_buf_get_name(d.bufnr)
+            if name ~= "" then
+              by_file[name] = by_file[name] or {}
+              table.insert(by_file[name], {
+                message = d.message,
+                severity = severity_map[d.severity] or "Information",
+                source = d.source,
+                range = {
+                  start = { line = d.lnum, character = d.col },
+                  ["end"] = { line = d.end_lnum or d.lnum, character = d.end_col or d.col },
+                },
+              })
+            end
+          end
+          local out = {}
+          for name, list in pairs(by_file) do
+            table.insert(out, { uri = "file://" .. name, diagnostics = list })
+          end
+          for _, s in ipairs(M.state.clients) do
+            if s.rpc then
+              pcall(s.rpc.notify, s.rpc, "diagnostics_changed", { files = out })
+            end
+          end
+        end)
+      )
+    end,
+  })
+  M.state._diag_group = diag_group
+  M.state._diag_timer_ref = diag_timer -- ponytail: ref captured for stop() cleanup, timer may be replaced by callback
+
   M.state.server = server
   log.log("info", "server ready on port " .. server.port)
   vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
@@ -151,6 +206,15 @@ function M.stop()
     require("clide.selection").disable()
     require("clide.lockfile").remove(state.server.port)
     require("clide.server.ws").stop(state.server)
+  end
+  if state._diag_group then
+    pcall(vim.api.nvim_del_augroup_by_id, state._diag_group)
+  end
+  if state._diag_timer_ref then
+    pcall(function()
+      state._diag_timer_ref:stop()
+      state._diag_timer_ref:close()
+    end)
   end
 
   require("clide.terminal").close()
