@@ -7,8 +7,8 @@ local Dispatcher = {}
 Dispatcher.__index = Dispatcher
 
 --- send: function(text) writes one JSON-RPC message to the client.
-function M.new(send)
-  return setmetatable({ send = send }, Dispatcher)
+function M.new(send, client_id)
+  return setmetatable({ send = send, client_id = client_id or "?" }, Dispatcher)
 end
 
 function Dispatcher:respond(id, result, err)
@@ -53,7 +53,7 @@ function Dispatcher:handle(text)
       end
       responded = true
       self:respond(msg.id, result, err)
-    end)
+    end, self.client_id)
   elseif msg.id then
     self:respond(
       msg.id,

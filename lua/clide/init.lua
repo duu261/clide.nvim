@@ -73,35 +73,40 @@ function M.start()
     end,
     on_connect = function(client)
       M.state.clients = M.state.clients or {}
+      M.state._next_client_id = (M.state._next_client_id or 0) + 1
+      local cid = tostring(M.state._next_client_id)
       local session = {
         client = client,
         rpc = rpc_mod.new(function(text)
           ws.send(client, text)
-        end),
+        end, cid),
+        id = cid,
       }
       table.insert(M.state.clients, session)
       M.state.connected = true
       M.state.client_count = (M.state.client_count or 0) + 1
-      log.log("info", "claude connected")
+      log.log("info", "claude connected [client " .. cid .. "]")
       vim.schedule(function()
-        vim.notify("clide: Claude connected", vim.log.levels.INFO)
+        vim.notify("clide: Claude " .. cid .. " connected", vim.log.levels.INFO)
       end)
     end,
     on_disconnect = function(client)
       if not M.state.clients then
         return
       end
+      local dc_id = "?"
       for id, s in pairs(M.state.clients) do
         if s.client == client then
+          dc_id = s.id or "?"
           M.state.clients[id] = nil
           break
         end
       end
       M.state.connected = next(M.state.clients) ~= nil
       M.state.client_count = math.max(0, (M.state.client_count or 1) - 1)
-      log.log("info", "claude disconnected")
+      log.log("info", "claude disconnected [client " .. dc_id .. "]")
       vim.schedule(function()
-        vim.notify("clide: Claude disconnected", vim.log.levels.WARN)
+        vim.notify("clide: Claude " .. dc_id .. " disconnected", vim.log.levels.WARN)
       end)
     end,
   })

@@ -42,7 +42,7 @@ end
 --- respond(result, err) sends the JSON-RPC response for this call.
 M._last_tool = nil
 
-function M.call(name, args, respond)
+function M.call(name, args, respond, client_id)
   M._last_tool = name
   local def = registry[name]
   if not def then
@@ -54,11 +54,24 @@ function M.call(name, args, respond)
   local ok, result = pcall(def.handler, args, respond)
   local elapsed = math.floor((vim.uv.hrtime() - start) / 1000000 + 0.5)
   if not ok then
-    log.log("error", "tool " .. name .. " failed (" .. elapsed .. "ms): " .. tostring(result))
+    log.log(
+      "error",
+      "tool "
+        .. name
+        .. " failed ("
+        .. elapsed
+        .. "ms) [client "
+        .. (client_id or "?")
+        .. "]: "
+        .. tostring(result)
+    )
     respond(nil, { code = -32603, message = tostring(result) })
     return
   end
-  log.log("info", "tool call: " .. name .. " (" .. elapsed .. "ms)")
+  log.log(
+    "info",
+    "tool call: " .. name .. " (" .. elapsed .. "ms) [client " .. (client_id or "?") .. "]"
+  )
   if result ~= M.DEFER then
     respond(result)
   end
