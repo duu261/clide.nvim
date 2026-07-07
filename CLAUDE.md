@@ -4,7 +4,7 @@ Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WebSocket
 MCP) with inline per-hunk review. Protocol reference: PROTOCOL.md.
 
 **Session start: read openwiki/quickstart.md** — project overview, then follow
-links to architecture/development notes. Roadmap lives in `openwiki/_plan.md`.
+links to architecture/development notes. Roadmap lives in `docs/ROADMAP.md`.
 
 ## Hard constraints
 
@@ -22,8 +22,8 @@ links to architecture/development notes. Roadmap lives in `openwiki/_plan.md`.
 ## Workflow
 
 - New features: run the nvim-plugin-maker skill flow first — brainstorm, then
-  scope in `openwiki/_plan.md`, then TDD for anything risky (evented/async/IO/
-  config/command). Keep `openwiki/_plan.md` current as items land.
+  scope in `docs/ROADMAP.md`, then TDD for anything risky (evented/async/IO/
+  config/command). Keep `docs/ROADMAP.md` current as items land.
 - Tests: cover the risky surface — protocol (frame/handshake/rpc/ws), auth, and
   review hunk-diff. Test-first there when it earns its cost; skip tests for trivial
   wrappers. No strict red-green ceremony. Always run `make test` before a commit
@@ -47,7 +47,8 @@ make lint      # stylua --check lua/ tests/ + luacheck lua/ tests/
 - `lua/clide/terminal/` — providers: native, tmux, toggleterm, snacks, none
 - `lua/clide/util/` — log, fs helpers
 - `tests/` — plenary specs, `tests/minimal_init.lua` bootstraps
-- `openwiki/` — overview, architecture, development, roadmap (`_plan.md`)
+- `openwiki/` — overview, architecture, development
+- `docs/ROADMAP.md` — bugs, gaps, v2 ideas
 - `docs/WORKFLOW.md` — dev cycle, providers, token budget, pre-release
 - `CHANGELOG.md` — Keep a Changelog, semver
 - `CONFIG.md` — every `setup()` key documented
