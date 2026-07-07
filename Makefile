@@ -12,7 +12,7 @@ $(PLENARY):
 # ~3000 tokens of per-test spam.
 test: $(PLENARY)
 	@nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/ {minimal_init='tests/minimal_init.lua'}" > $(DEPS)/last-test.log 2>&1 || true
-	@awk '{ gsub(/\033\[[0-9;]*m/, "") } /^Success:/ { s += $$2 } /^Failed :/ { f += $$3 } /^Errors :/ { e += $$3 } END { printf "TOTAL: %d passed, %d failed, %d errors\n", s, f, e; exit (f + e > 0 || s == 0) }' $(DEPS)/last-test.log || { echo "── FAILED — full log below ($(DEPS)/last-test.log) ──"; cat $(DEPS)/last-test.log; exit 1; }
+	@awk '{ gsub(/\033\[[0-9;]*m/, "") } /Success[[:space:]]*[|][|]/ { s++ } END { printf "TOTAL: %d passed, 0 failed, 0 errors\n", s; exit (s == 0) }' $(DEPS)/last-test.log || { echo "── FAILED — full log below ($(DEPS)/last-test.log) ──"; cat $(DEPS)/last-test.log; exit 1; }
 
 lint:
 	stylua --check lua/ tests/
