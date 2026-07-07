@@ -6,15 +6,26 @@ versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-07-07
+
 ### Added
 - Follow mode: opt-in jump/notify after Claude writes files
+- SessionStart hook primes Claude sessions with clide context
 - Tmux panes labeled with project name
 
 ### Changed
+- SSE/MCP transport path dropped (WS-only going forward)
 - Extracted `util/fs` module from init
+- Luacheck config and code style updated
 
 ### Fixed
+- Unsaved buffer selection silently dropped by filePath guard
+- Spinner teardown closes wrong handle (spurious "already closing" error)
+- PostToolUse hook reads stdin JSON instead of env vars
+- Single-line visual selection sync
+- Review hint clipping at first/last line
 - Terminal closed on `:ClideStop` to prevent orphaned tmux panes
+- Follow queue snapshot mode/modified validation
 
 ## [0.3.1] — 2026-07-04
 

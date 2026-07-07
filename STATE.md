@@ -1,4 +1,4 @@
-# clide.nvim — v0.3.1
+# clide.nvim — v0.3.2
 
 Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WebSocket
 MCP) with inline per-hunk review. Multi-session: multiple `claude` clients can
