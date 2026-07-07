@@ -1,6 +1,6 @@
 # clide.nvim
 
-Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WebSocket
+Pure-Lua Neovim plugin prio on Claude and tmux, implementing the Claude Code IDE protocol (WebSocket
 MCP) with inline per-hunk review. Protocol reference: PROTOCOL.md.
 
 **Session start: read openwiki/quickstart.md** — project overview, then follow
@@ -16,6 +16,11 @@ links to architecture/development notes. Roadmap lives in `docs/ROADMAP.md`.
 - Protocol values are exact: `protocolVersion = "2025-03-26"`, `ideName = "Neovim"`,
   `transport = "ws"`, openDiff responses `FILE_SAVED` / `DIFF_REJECTED`.
 - All uv/socket callbacks wrapped in `pcall`; never crash Neovim on malformed input.
+- Primary workflow is Claude in a tmux pane beside nvim. Never trust autocmd
+  events for tmux-facing features: ModeChanged/FocusLost delivery is
+  terminal-dependent (proven dead on the dev machine) — probe the event live
+  first, or poll (see selection.lua). Pushed context costs Claude tokens:
+  anything auto-pushed (selections, diagnostics) must dedup and filter.
 - No `.mcp.json` — SSE/MCP transport removed in `b511f6c`. Claude discovers the
   server via lockfile + `CLAUDE_CODE_SSE_PORT` env var (name is CLI-mandated;
   transport is WS). Statusline hooks write `.claude/settings.local.json`
@@ -87,9 +92,9 @@ Single-context layout. See `docs/agents/domain.md`.
 This repository has documentation located in the /openwiki directory.
 
 Start here:
+
 - [OpenWiki quickstart](openwiki/quickstart.md)
 
 OpenWiki includes repository overview, architecture notes, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
 
 When working in this repository, read the OpenWiki quickstart first, then follow its links to the relevant architecture, workflow, domain, operation, and testing notes.
-
