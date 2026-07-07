@@ -1,6 +1,7 @@
 local render = require("clide.review.render")
 local queue = require("clide.review.queue")
 local eol = require("clide.util.eol")
+local log = require("clide.util.log")
 
 local M = {}
 
@@ -26,6 +27,7 @@ end
 --- Open a review for an openDiff request. Returns the review record.
 --- respond: JSON-RPC responder — called once when all hunks resolved.
 function M.open(args, respond)
+  log.log("info", "openDiff open: " .. (args.tab_name or args.new_file_path))
   local bufnr = vim.fn.bufnr(args.new_file_path)
   if bufnr == -1 then
     bufnr = vim.fn.bufadd(args.new_file_path)
@@ -145,6 +147,7 @@ function M.finish(review)
     return
   end
   review.done = true
+  log.log("info", "openDiff resolve: " .. (review.accepted > 0 and "FILE_SAVED" or "DIFF_REJECTED"))
 
   if review.accepted > 0 then
     -- Do NOT write the file; the Claude CLI will do that after receiving FILE_SAVED.

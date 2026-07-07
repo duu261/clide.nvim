@@ -1,5 +1,6 @@
 local tools = require("clide.tools")
 local eol = require("clide.util.eol")
+local log = require("clide.util.log")
 
 local M = {}
 
@@ -15,6 +16,7 @@ local function ensure_diffopt_linematch()
 end
 
 local function open_tab(rec)
+  log.log("info", "openDiff open: " .. rec.tab_name)
   vim.cmd("tabnew " .. vim.fn.fnameescape(rec.new_path))
   rec.tab = vim.api.nvim_get_current_tabpage()
   vim.cmd("diffthis")
@@ -54,6 +56,7 @@ local function open_tab(rec)
         M.finish(rec.tab_name, "accept")
       end)
       if not ok then
+        log.log("error", "error accepting diff: " .. tostring(err))
         vim.notify("clide: error accepting diff: " .. tostring(err), vim.log.levels.ERROR)
       end
     end,
@@ -66,6 +69,7 @@ local function open_tab(rec)
         M.finish(rec.tab_name, "reject")
       end)
       if not ok then
+        log.log("error", "error rejecting diff: " .. tostring(err))
         vim.notify("clide: error rejecting diff: " .. tostring(err), vim.log.levels.ERROR)
       end
     end,
@@ -75,6 +79,7 @@ local function open_tab(rec)
       M.finish(rec.tab_name, "accept")
     end)
     if not ok then
+      log.log("error", "error accepting diff: " .. tostring(err))
       vim.notify("clide: error accepting diff: " .. tostring(err), vim.log.levels.ERROR)
     end
   end, { buffer = scratch, desc = "clide: accept diff" })
@@ -83,6 +88,7 @@ local function open_tab(rec)
       M.finish(rec.tab_name, "reject")
     end)
     if not ok then
+      log.log("error", "error rejecting diff: " .. tostring(err))
       vim.notify("clide: error rejecting diff: " .. tostring(err), vim.log.levels.ERROR)
     end
   end, { buffer = scratch, desc = "clide: reject diff" })
@@ -95,6 +101,7 @@ function M.finish(tab_name, verdict)
   end
   rec.done = true
   M.active[tab_name] = nil
+  log.log("info", "openDiff resolve: " .. (verdict == "accept" and "FILE_SAVED" or "DIFF_REJECTED"))
 
   if verdict == "accept" then
     -- take current scratch content (user may have edited on top)

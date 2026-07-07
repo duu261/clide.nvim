@@ -115,7 +115,10 @@ function M.start()
     end
     for _, s in pairs(M.state.clients) do
       if s.rpc then
-        pcall(s.rpc.notify, s.rpc, method, params)
+        local pok, perr = pcall(s.rpc.notify, s.rpc, method, params)
+        if not pok then
+          log.log("error", "selection notify error: " .. tostring(perr))
+        end
       end
     end
   end)
@@ -124,6 +127,7 @@ function M.start()
   require("clide.follow").setup()
 
   M.state.server = server
+  log.log("info", "server ready on port " .. server.port)
   vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
 
   vim.api.nvim_create_autocmd("VimLeavePre", {

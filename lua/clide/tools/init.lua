@@ -46,6 +46,7 @@ function M.call(name, args, respond)
     respond(nil, { code = -32602, message = "Unknown tool: " .. name })
     return
   end
+  log.log("info", "tool call: " .. name)
   local ok, result = pcall(def.handler, args, respond)
   if not ok then
     log.log("error", "tool " .. name .. " failed: " .. tostring(result))
