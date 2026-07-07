@@ -74,15 +74,14 @@ local function emit()
   local mode = vim.fn.mode()
   local ok, sel
   if mode == "v" or mode == "V" or mode == "\22" then
-    -- Still in visual mode: capture fresh selection so _pending_selection
-    -- stays current, but don't send yet — the final send happens after
-    -- ModeChanged (leaving visual mode). Sending here would set _last_sent
-    -- and poison the dedup check for the post-Esc emission.
+    -- Still in visual mode: capture fresh selection. Let fallthrough send
+    -- it with dedup — the ModeChanged handler will rebuild from '< '> marks
+    -- if visual mode exits without a cursor move in between.
     local ok_build, fresh = pcall(M.build)
     if ok_build and fresh and not fresh.selection.isEmpty then
       M._pending_selection = fresh
+      sel, ok = fresh, true
     end
-    return
   elseif M._pending_selection then
     -- Just left visual mode: use the selection captured on ModeChanged
     sel = M._pending_selection
@@ -126,9 +125,9 @@ function M.enable(notify)
   notify_fn = notify
   timer = vim.uv.new_timer()
   augroup = vim.api.nvim_create_augroup("ClideSelection", { clear = true })
-  vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "ModeChanged" }, {
+  vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "ModeChanged", "FocusLost" }, {
     group = augroup,
-    callback = function()
+    callback = function(ev)
       -- Capture visual selection synchronously while still in visual mode,
       -- so that when emit() fires after the debounce window we still have
       -- the visual region even if the mode has already changed to normal.
@@ -137,6 +136,23 @@ function M.enable(notify)
         local ok, sel = pcall(M.build)
         if ok and not sel.selection.isEmpty then
           M._pending_selection = sel
+          -- Send immediately — FocusLost doesn't fire on tmux pane switch
+          -- so debounce timer (100ms) may not deliver before user switches.
+          local ls = M._last_sent
+          if
+            not (
+              ls
+              and ls.text == sel.text
+              and ls.selection.start.line == sel.selection.start.line
+              and ls.selection["end"].line == sel.selection["end"].line
+              and ls.selection.isEmpty == sel.selection.isEmpty
+              and ls.filePath == sel.filePath
+            )
+          then
+            M._latest = sel
+            M._last_sent = sel
+            notify_fn("selection_changed", sel)
+          end
         end
       else
         -- ModeChanged fires AFTER the mode has already flipped, so a
@@ -152,6 +168,41 @@ function M.enable(notify)
           end
         end
       end
+
+      -- FocusLost: user switching to Claude pane while still in visual mode.
+      -- Flush pending selection immediately (bypass emit()'s visual-mode guard).
+      -- Note: vim.fn.mode() may return "n" here - nvim can exit visual mode
+      -- before FocusLost callback fires. Use marks '< '> as fallback.
+      if ev.event == "FocusLost" then
+        local sel = M._pending_selection
+        if not sel then
+          -- Marks still hold last visual selection even after mode flips
+          local ok, msel = pcall(M.build_from_marks)
+          if ok and msel and not msel.selection.isEmpty then
+            sel = msel
+          end
+        end
+        if sel then
+          M._pending_selection = nil
+          local ls = M._last_sent
+          if
+            not (
+              ls
+              and ls.text == sel.text
+              and ls.selection.start.line == sel.selection.start.line
+              and ls.selection["end"].line == sel.selection["end"].line
+              and ls.selection.isEmpty == sel.selection.isEmpty
+              and ls.filePath == sel.filePath
+            )
+          then
+            M._latest = sel
+            M._last_sent = sel
+            notify_fn("selection_changed", sel)
+          end
+        end
+        return
+      end
+
       timer:stop()
       timer:start(100, 0, vim.schedule_wrap(emit))
     end,

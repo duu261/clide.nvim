@@ -61,10 +61,11 @@ function M.start()
   local server, err = ws.start({
     auth_token = token,
     on_message = function(client, text)
-      if not M.state.clients then
+      local sessions = M.state.server and M.state.server.sessions
+      if not sessions then
         return
       end
-      for _, s in pairs(M.state.clients) do
+      for _, s in pairs(sessions) do
         if s.client == client then
           s.rpc:handle(text)
           return
@@ -72,7 +73,9 @@ function M.start()
       end
     end,
     on_connect = function(client)
-      M.state.clients = M.state.clients or {}
+      if not M.state.server then
+        return
+      end
       M.state._next_client_id = (M.state._next_client_id or 0) + 1
       local cid = tostring(M.state._next_client_id)
       local session = {
@@ -82,7 +85,7 @@ function M.start()
         end, cid),
         id = cid,
       }
-      table.insert(M.state.clients, session)
+      table.insert(M.state.server.sessions, session)
       M.state.connected = true
       M.state.client_count = (M.state.client_count or 0) + 1
       log.log("info", "claude connected [client " .. cid .. "]")
@@ -91,18 +94,19 @@ function M.start()
       end)
     end,
     on_disconnect = function(client)
-      if not M.state.clients then
+      local sessions = M.state.server and M.state.server.sessions
+      if not sessions then
         return
       end
       local dc_id = "?"
-      for id, s in pairs(M.state.clients) do
+      for idx, s in ipairs(sessions) do
         if s.client == client then
           dc_id = s.id or "?"
-          M.state.clients[id] = nil
+          sessions[idx] = nil
           break
         end
       end
-      M.state.connected = next(M.state.clients) ~= nil
+      M.state.connected = next(sessions) ~= nil
       M.state.client_count = math.max(0, (M.state.client_count or 1) - 1)
       log.log("info", "claude disconnected [client " .. dc_id .. "]")
       vim.schedule(function()
@@ -116,11 +120,13 @@ function M.start()
   end
 
   lockfile.write(server.port, token)
+  M.state.server = server
+  server.sessions = {}
   selection.enable(function(method, params)
-    if not M.state.clients then
+    if not server.sessions then
       return
     end
-    for _, s in pairs(M.state.clients) do
+    for _, s in pairs(server.sessions) do
       if s.rpc then
         local pok, perr = pcall(s.rpc.notify, s.rpc, method, params)
         if not pok then
@@ -153,7 +159,7 @@ function M.start()
           diag_timer:stop()
           diag_timer:close()
           diag_timer = nil
-          if not M.state.clients then
+          if not server.sessions then
             return
           end
           local by_file = {}
@@ -177,7 +183,7 @@ function M.start()
           for name, list in pairs(by_file) do
             table.insert(out, { uri = "file://" .. name, diagnostics = list })
           end
-          for _, s in ipairs(M.state.clients) do
+          for _, s in ipairs(server.sessions) do
             if s.rpc then
               pcall(s.rpc.notify, s.rpc, "diagnostics_changed", { files = out })
             end
