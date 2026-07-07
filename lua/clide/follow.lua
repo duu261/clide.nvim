@@ -130,7 +130,7 @@ function M.handle(path, opts)
       if modified and not same_buf then
         vim.cmd.split()
       end
-      vim.cmd.edit(vim.fn.fnameescape(path))
+      pcall(vim.cmd.edit, vim.fn.fnameescape(path))
     end
   end)
 end
