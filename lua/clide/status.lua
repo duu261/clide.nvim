@@ -136,14 +136,9 @@ function M.hooks_config()
                 .. ' "You are connected to a live Neovim editor'
                 .. " via clide.nvim (WebSocket IDE protocol). IDE tools"
                 .. ' are available under the mcp__ide__ prefix:"'
-                .. ' "- openFile: navigate/select in editor.'
-                .. " startText/endText do LITERAL substring match - text must"
-                .. " appear exactly in the file; read the file first if unsure."
-                .. ' Prefer this over executeCode for opening files."'
-                .. ' "- openDiff: show diff for user review"'
-                .. ' "- executeCode: run Lua inside the nvim process"'
-                .. ' "- getDiagnostics, saveDocument,'
-                .. ' checkDocumentDirty, and more via tools/list"'
+                .. ' "- executeCode: run Lua inside nvim process'
+                .. ' (full nvim eval: open files, run commands, read buffers)"'
+                .. ' "- getDiagnostics: query diagnostics from current buffer"'
                 .. ' "Visual selections made by the user are pushed to'
                 .. ' you automatically (at_mentioned) - no polling needed."'
                 .. "; exit 0'",
