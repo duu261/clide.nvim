@@ -238,3 +238,41 @@ Provider selection happens once at `terminal.open()` time via the `auto` provide
 - **fs.lua** — Pure-uv file I/O: `write_file()`, `read_file()`, `mkdir_p()`, `list_locks()`. No plenary dependency.
 - **sha1.lua** — Pure-Lua SHA-1 implementation using LuaJIT `bit` module. Required for WebSocket handshake `Sec-WebSocket-Accept`.
 - **eol.lua** — EOL handling: `join()` preserves trailing newline based on `bo.eol`.
+
+## Notification data flow and state lifecycle
+
+`selection_changed` / `diagnostics_changed` path:
+
+```
+selection.lua autocmds → notify_fn closure (init.lua M.start)
+  → server.sessions[*].rpc:notify → ws.send
+```
+
+Ownership rules (learned the hard way, `dbea330`):
+
+- Client sessions live on `server.sessions` (the WS server object), NOT on
+  `M.state`. `M.stop()` does `M.state = {}` — anything stored on `M.state`
+  and expected to survive stop will break.
+- `M.state.server = server` must stay set: `M.stop()` needs it to call
+  `ws.stop()` and remove the lockfile. It was once missing — server kept
+  running invisibly, and the notify guard silently dropped every
+  notification.
+- Guards that drop notifications must log (`log.log("warn", ...)`). A
+  silent drop cost a full debugging session; see development.md lessons.
+
+Two independent paths deliver editor context to Claude:
+
+1. WS `selection_changed` JSON-RPC notification (this plugin's code).
+2. Claude CLI's built-in IDE auto-push (`at_mentioned`). Works even when
+   path 1 is broken — seeing selections in a Claude conversation does NOT
+   prove path 1 works.
+
+Naming trap: the `CLAUDE_CODE_SSE_PORT` env var name is mandated by the
+Claude CLI; the transport is WS. The old SSE/MCP transport was removed in
+`b511f6c` — do not hunt for SSE code or `.mcp.json` writers.
+
+CLI quirk: Claude CLI caches the last NON-empty selection and re-injects it
+into every prompt; it ignores the empty (`isEmpty = true`) cursor updates the
+plugin sends after leaving visual mode. A "ghost" selection in Claude's
+context is CLI-side caching, not a plugin re-send — verify via
+`require("clide.selection")._last` before debugging the plugin.

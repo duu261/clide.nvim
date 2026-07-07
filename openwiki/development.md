@@ -138,3 +138,21 @@ GitHub Actions at `/.github/workflows/ci.yml`:
 - **test** job: ubuntu-latest, matrix on `[stable, nightly]` Neovim. Uses `rhysd/action-setup-vim`, caches plenary in `.deps/`, runs `make test`.
 - **lint** job: stylua `--check lua/ tests/`, luacheck `lua/ tests/`.
 - Triggers: push to `main`/`master` + pull requests.
+
+## Debugging lessons (2026-07-08 selection fix)
+
+Distilled from the handoff confusion diary of the session behind `dbea330`:
+
+- Notification "doesn't arrive": trace the full sender-to-receiver path
+  (see architecture.md "Notification data flow") before editing sender
+  logic. 80% of that session was spent on the wrong half.
+- Test the EVENT before coding the handler. `FocusLost` does NOT fire on
+  tmux pane switches — only `ModeChanged`/`CursorMoved` do.
+- "State X is nil" means never-set OR set-then-cleared. Check `M.stop()`
+  and the `M.state = {}` wipe before concluding "no client connected".
+- Check `git log` for removed features before chasing dead config
+  (`b511f6c` removed the SSE transport; env var name still says SSE).
+- Lua closures capture locals by reference (upvalues):
+  `local x = f({ ...closures using x... })` works even though `x` is nil at
+  closure creation. luacheck's "accessing undefined variable" there is a
+  false positive.

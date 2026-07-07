@@ -16,8 +16,10 @@ links to architecture/development notes. Roadmap lives in `docs/ROADMAP.md`.
 - Protocol values are exact: `protocolVersion = "2025-03-26"`, `ideName = "Neovim"`,
   `transport = "ws"`, openDiff responses `FILE_SAVED` / `DIFF_REJECTED`.
 - All uv/socket callbacks wrapped in `pcall`; never crash Neovim on malformed input.
-- MCP config writes to `.mcp.json`; auto-approve in `.claude/settings.local.json`.
-  Both files gitignored (dynamic ports).
+- No `.mcp.json` — SSE/MCP transport removed in `b511f6c`. Claude discovers the
+  server via lockfile + `CLAUDE_CODE_SSE_PORT` env var (name is CLI-mandated;
+  transport is WS). Statusline hooks write `.claude/settings.local.json`
+  (gitignored). Notification data flow: openwiki/architecture.md.
 
 ## Workflow
 
