@@ -122,7 +122,7 @@ Each tool module calls `tools.register({ name, description, inputSchema, handler
 | `vim_grep` | `grep.lua` | Project-wide grep via quickfix |
 | `diagnose` | `diagnose.lua` | Check clide setup |
 | `close_tab` | `tabs.lua` | Close tab by name |
-| `closeAllDiffTabs` | `tabs.lua` | Close all diff tabs |
+| `closeAllDiffTabs` | `open_diff.lua` | Close all diff tabs |
 
 ### Important: CLI Host Tool Gap
 

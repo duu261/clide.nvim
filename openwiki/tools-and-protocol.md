@@ -130,7 +130,7 @@ Alias for `executeCode`. Source: `/lua/clide/tools/lua_eval.lua`.
 | Tool | Description | Source |
 |------|-------------|--------|
 | `close_tab` | Close tab by name | `/lua/clide/tools/tabs.lua` |
-| `closeAllDiffTabs` | Close all diff tabs | `/lua/clide/tools/tabs.lua` |
+| `closeAllDiffTabs` | Close all diff tabs | `/lua/clide/tools/open_diff.lua` |
 
 ### Diagnostics Tool
 
