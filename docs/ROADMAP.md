@@ -14,10 +14,10 @@ plan + tester notes in `docs/human_test_plan_v1.md`).
 - **T16 disconnect notify** — root-caused and fixed in `ca73a71`: ws.stop's
   vim.schedule'd on_disconnect raced `M.stop()`'s `M.state = {}` wipe; now
   called synchronously. Verify manually after next nvim restart.
-- **Stop/start lifecycle untested** — headless spec: `:ClideStop` + `:ClideStart` must recreate `server.sessions` and keep `selection_changed`/`diagnostics_changed` flowing (regression class behind `dbea330`; sessions now on `server.sessions`, `M.stop()` wipes `M.state`).
-- **README security note** — executeCode = full nvim eval, no sandbox in
-  clide; Claude Code permission prompt is the only gate, and executeCode
-  bypasses the review flow. One honest paragraph.
+- **Stop/start lifecycle spec, init level** — ws-layer sync-disconnect
+  guarantee now asserted in ws_spec.lua. Full `:ClideStop` + `:ClideStart`
+  init-level spec still missing (M.start opens a terminal — needs the
+  `none` provider or a stub to run headless).
 
 ## v2 ideas (from tester notes + 2026-07-08 expansion)
 

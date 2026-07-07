@@ -238,7 +238,7 @@ the session.
 
 `luaEval` is a targeted subset that returns values without side effects;
 prefer it for read-only queries. `executeCode` is the escape hatch — disable it
-by removing the tool from the registry if you want a read-only integration.
+with `setup({ execute_code = false })` for a read-only integration.
 
 ## 🔬 Quality
 

@@ -80,9 +80,8 @@ describe("ws server", function()
 
     ws.stop(server)
 
-    vim.wait(200, function()
-      return #disconnected >= 1
-    end)
-    assert.equals(1, #disconnected, "on_disconnect called once")
+    -- T16 regression (ca73a71): callers wipe their state right after
+    -- stop() returns, so on_disconnect must have run synchronously by now
+    assert.equals(1, #disconnected, "on_disconnect ran before stop() returned")
   end)
 end)
