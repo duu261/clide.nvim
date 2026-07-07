@@ -1,19 +1,18 @@
 # clide.nvim — v0.3.1
 
-Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WS + SSE
+Pure-Lua Neovim plugin implementing the Claude Code IDE protocol (WebSocket
 MCP) with inline per-hunk review. Multi-session: multiple `claude` clients can
 connect to the same Neovim instance concurrently.
 
-## Transports
+## Transport
 
 | Transport | Type | Port | Auth |
 |-----------|------|------|------|
 | WebSocket | IDE protocol (claude CLI), multi-client | Lock file | CSPRNG hex token |
-| SSE | MCP server (.mcp.json), persistent headless child, GET /sse + POST /message (legacy) + POST /sse (Streamable HTTP) | Dynamic | Session ID |
+
+SSE transport dropped at `b511f6c` (2026-07-06). WS-only going forward.
 
 ## Tools (17)
-
-All available over both WS and SSE transports.
 
 ### Editor
 - `openFile` — Open file, select by string anchor
@@ -44,26 +43,26 @@ All available over both WS and SSE transports.
 - `close_tab` — Close tab by name
 - `closeAllDiffTabs` — Close all diff tabs
 
-## Tests — run `make test` for the live total (prints `TOTAL: N passed`)
+## Tests — 129 passed, 0 failed (`make test`)
 
 | Area | Tests | File |
 |------|-------|------|
-| Core protocol (WS, SSE, RPC, frame, handshake) | 25 | ws_spec, sse_spec, rpc_spec, frame_spec, handshake_spec |
+| Core protocol (WS, RPC, frame, handshake) | 20 | ws_spec, rpc_spec, frame_spec, handshake_spec |
 | Inline review (engine, queue, render) | 14 | review_engine_spec, review_queue_spec |
 | Terminal providers (none, native, tmux, snacks, dispatch) | 24 | terminal_spec |
 | Simple tools (workspace, editors, diag, docs, tabs, eval) | 8 | tools_simple_spec |
-| MCP config (install, merge, idempotent) | 4 | sse_spec (MCP config block) |
-| Other (selection, sha1, config, lockfile, status, init) | 31 | selection_spec, sha1_spec, config_spec, lockfile_spec, status_spec, init_spec |
-| openFile, openDiff tools | ~19 | tools_openfile_spec, tools_opendiff_spec |
+| Other (selection, config, lockfile, status, init) | 44 | selection_spec, config_spec, lockfile_spec, status_spec, init_spec |
+| openFile, openDiff tools | 19 | tools_openfile_spec, tools_opendiff_spec |
 
 ### Coverage gaps
 - tmux provider tests skip actual pane creation (side effects)
 - snacks provider tests minimal (installed dep assumed)
+- SSE transport tests removed with transport (`b511f6c`)
 
 ## Quality
 - Luacheck: 0 warnings, 0 errors (only frame.lua's documented 143 shim ignore remains)
 - Stylua: clean (`stylua --check lua/ tests/`)
-- CI: stable+nightly matrix, runs stylua + luacheck on push. Green once local commits are pushed.
+- CI: stable+nightly matrix, runs stylua + luacheck on push.
 - `make lint` mirrors CI (stylua + luacheck)
 - Dogfooded: session completed entirely through clide.nvim's own protocol
 
