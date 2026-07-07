@@ -11,9 +11,9 @@ plan + tester notes in `docs/human_test_plan_v1.md`).
   `selection.lua:79-81` races. Needs headless spec first (evented surface).
 - **T9 `:ClideReviewTab`** — never manually tested. Verify escape hatch:
   inline review → classic diff tab, `ga`/`gr`/`:w`, partial-resolve guard.
-- **No "Claude disconnected" notify** on `:ClideStop` (T16 quirk). Likely fixed
-  by `dbea330`: `M.state.server` now set, so `ws.stop()` actually runs and
-  `on_disconnect` (init.lua:113) can fire. Retest.
+- **T16 disconnect notify** — root-caused and fixed in `ca73a71`: ws.stop's
+  vim.schedule'd on_disconnect raced `M.stop()`'s `M.state = {}` wipe; now
+  called synchronously. Verify manually after next nvim restart.
 - **Stop/start lifecycle untested** — headless spec: `:ClideStop` + `:ClideStart` must recreate `server.sessions` and keep `selection_changed`/`diagnostics_changed` flowing (regression class behind `dbea330`; sessions now on `server.sessions`, `M.stop()` wipes `M.state`).
 - **README security note** — executeCode = full nvim eval, no sandbox in
   clide; Claude Code permission prompt is the only gate, and executeCode
