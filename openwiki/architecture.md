@@ -246,7 +246,21 @@ Provider selection happens once at `terminal.open()` time via the `auto` provide
 ```
 selection.lua autocmds → notify_fn closure (init.lua M.start)
   → server.sessions[*].rpc:notify → ws.send
+
+diagnostics_push config filter (init.lua M.start lines 151-209)
+  → DiagnosticChanged autocmd → 500ms debounce → severity filter
+    → server.sessions[*].rpc:notify → ws.send
 ```
+
+The `diagnostics_changed` push is governed by `diagnostics_push` config
+(`config.lua` line 16; default `"error"`). Only diagnostics at or above the
+configured severity are included — `false` disables the push entirely.
+Every push lands in Claude's context window and costs tokens, so the default
+filters to errors only. Source: `/lua/clide/init.lua` lines 145-209.
+
+The `execute_code` config key (`config.lua` line 12; default `true`) can be
+set to `false` to skip loading the executeCode tool entirely. Source:
+`/lua/clide/tools/init.lua` line 103.
 
 Ownership rules (learned the hard way, `dbea330`):
 

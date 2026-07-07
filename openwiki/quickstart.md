@@ -83,10 +83,12 @@ All keys optional. `setup()` works without arguments — defaults apply.
 ```lua
 require("clide").setup({
   autostart = false,         -- Start automatically on Neovim load?
+  execute_code = true,       -- Set false to disable executeCode tool
+  diagnostics_push = "error",-- Min severity for live diagnostics push ("error"|"warn"|"info"|"hint"|false)
   follow = "off",            -- "off" | "jump" | "notify" | "both"
   log_level = "info",        -- "debug" | "info" | "warn" | "error"
   terminal = {
-    provider = "auto",       -- auto | native | tmux | toggleterm | snacks | none
+    provider = "auto",       -- auto | native | snacks | tmux | none
     cmd = "claude",
     split_side = "right",
     split_width = 0.35,
