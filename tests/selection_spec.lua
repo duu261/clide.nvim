@@ -135,4 +135,31 @@ describe("selection", function()
     assert.equals(1, captured.params.lineEnd)
     selection.disable()
   end)
+
+  it("emits selection_changed after staying in visual mode past debounce", function()
+    local captured = {}
+    selection.enable(function(method, params)
+      table.insert(captured, { method = method, params = params })
+    end)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.cmd("normal! V") -- enter linewise visual mode
+    -- Wait past the 100ms debounce while still in visual mode,
+    -- so the timer fires and the old code would send prematurely.
+    vim.wait(200, function()
+      return false
+    end)
+    local during_visual = #captured
+    vim.cmd("normal! \27") -- leave visual mode
+    vim.wait(500, function()
+      return #captured > during_visual
+    end)
+    selection.disable()
+    assert.is_true(#captured > during_visual, "notification fired after leaving visual mode")
+    local last_notif = captured[#captured]
+    assert.equals("selection_changed", last_notif.method)
+    assert.is_false(last_notif.params.selection.isEmpty)
+    assert.equals(0, last_notif.params.selection.start.line)
+    assert.equals(1, last_notif.params.selection["end"].line)
+    assert.matches("alpha beta", last_notif.params.text)
+  end)
 end)

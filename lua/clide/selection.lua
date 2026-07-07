@@ -74,8 +74,15 @@ local function emit()
   local mode = vim.fn.mode()
   local ok, sel
   if mode == "v" or mode == "V" or mode == "\22" then
-    -- Still in visual mode: build fresh selection
-    ok, sel = pcall(M.build)
+    -- Still in visual mode: capture fresh selection so _pending_selection
+    -- stays current, but don't send yet — the final send happens after
+    -- ModeChanged (leaving visual mode). Sending here would set _last_sent
+    -- and poison the dedup check for the post-Esc emission.
+    local ok_build, fresh = pcall(M.build)
+    if ok_build and fresh and not fresh.selection.isEmpty then
+      M._pending_selection = fresh
+    end
+    return
   elseif M._pending_selection then
     -- Just left visual mode: use the selection captured on ModeChanged
     sel = M._pending_selection
