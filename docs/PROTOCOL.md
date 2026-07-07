@@ -1,8 +1,6 @@
-# DEPRECATED
+# How Claude Code IDE Extensions Actually Work
 
-This file has moved to `docs/PROTOCOL.md`.
-
-All content is preserved at the new location — same file, just organized under `docs/`.
+This document explains the protocol and architecture behind Claude Code's IDE integrations, based on reverse-engineering the VS Code extension. Use this guide to build your own integrations or understand how the official ones work.
 
 ## TL;DR
 
