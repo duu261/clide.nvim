@@ -153,7 +153,7 @@ Run `:ClideInstallHooks` once per project. Includes pending review count.
 Neovim binds a WS server on `127.0.0.1`, writes `~/.claude/ide/[port].lock`
 with a CSPRNG auth token, and launches `claude` with
 `CLAUDE_CODE_SSE_PORT` + `ENABLE_IDE_INTEGRATION=true`. Claude drives editor
-over JSON-RPC 2.0 / MCP. See [PROTOCOL.md](PROTOCOL.md) for full
+over JSON-RPC 2.0 / MCP. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for full
 reverse-engineered protocol reference.
 
 WS internals informed by MIT-licensed
