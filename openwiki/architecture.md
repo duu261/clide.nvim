@@ -178,9 +178,7 @@ clide.nvim follows the Claude Code IDE discovery protocol:
 4. Claude reads lock files, authenticates via `x-claude-code-ide-authorization` header.
 5. On `:ClideStop`, lock file is deleted.
 
-Key constraints:
-- **Bind `127.0.0.1` only** — never `0.0.0.0` (hard constraint from `CLAUDE.md`).
-- **CSPRNG token** — `vim.uv.random(16)`, never `math.random`. Never log the token.
+Key constraints (see [CLAUDE.md](../CLAUDE.md#hard-constraints) for the full list):
 - **Lock file mode `0600`** — owner-read/write only.
 - **Stale cleanup** — `clean_stale()` removes locks for dead PIDs on start.
 
