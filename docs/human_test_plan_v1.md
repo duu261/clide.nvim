@@ -280,6 +280,7 @@ session reconnects cleanly.
 
 ## T16 — Clean shutdown, no orphans
 
+pass
 PASS (partial). `ClideStop` → new WS connection, but no "disconnected"
 notify when ran manually. Restart reconnects cleanly. Notify missing
 may be config/quirk — note for follow-up.

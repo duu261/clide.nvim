@@ -1,9 +1,7 @@
 local M = {}
 
 local notify_fn
-local timer
 local poll_timer
-local augroup
 
 --- Build a selection object from the current buffer/mode.
 --- Returns: { text, filePath, fileUrl, selection = { start, end, isEmpty } }
@@ -25,6 +23,7 @@ function M.build()
       text = table.concat(lines, "\n"),
       filePath = file_path,
       fileUrl = "file://" .. file_path,
+
       selection = {
         start = { line = spos[2] - 1, character = spos[3] - 1 },
         ["end"] = { line = epos[2], character = epos[3] }, -- end exclusive
@@ -40,6 +39,7 @@ function M.build()
     text = "",
     filePath = file_path,
     fileUrl = "file://" .. file_path,
+
     selection = { start = pos, ["end"] = pos, isEmpty = true },
   }
 end
@@ -60,6 +60,7 @@ function M.build_from_marks()
     text = table.concat(lines, "\n"),
     filePath = file_path,
     fileUrl = "file://" .. file_path,
+
     selection = {
       start = { line = spos[2] - 1, character = spos[3] - 1 },
       ["end"] = { line = epos[2], character = epos[3] }, -- end exclusive
@@ -68,177 +69,47 @@ function M.build_from_marks()
   }
 end
 
-local function emit()
-  if not notify_fn then
-    return
-  end
-  local mode = vim.fn.mode()
-  local ok, sel
-  if mode == "v" or mode == "V" or mode == "\22" then
-    -- Still in visual mode: capture fresh selection. Let fallthrough send
-    -- it with dedup — the ModeChanged handler will rebuild from '< '> marks
-    -- if visual mode exits without a cursor move in between.
-    local ok_build, fresh = pcall(M.build)
-    if ok_build and fresh and not fresh.selection.isEmpty then
-      M._pending_selection = fresh
-      sel, ok = fresh, true
-    end
-  elseif M._pending_selection then
-    -- Just left visual mode: use the selection captured on ModeChanged
-    sel = M._pending_selection
-    M._pending_selection = nil
-    ok = true
-  else
-    ok, sel = pcall(M.build)
-  end
-  if not ok or not sel then
-    return
-  end
-  -- Deduplicate: skip if identical to the last sent selection
-  local ls = M._last_sent
-  if
-    ls
-    and ls.text == sel.text
-    and ls.selection.start.line == sel.selection.start.line
-    and ls.selection["end"].line == sel.selection["end"].line
-    and ls.selection.isEmpty == sel.selection.isEmpty
-    and ls.filePath == sel.filePath
-  then
-    return
-  end
-  if not sel.selection.isEmpty then
-    M._latest = sel
-  end
-  M._last_sent = sel
-  notify_fn("selection_changed", sel)
-end
-
---- Enable debounced selection_changed notifications.
---- notify: function(method, params)
+--- Track current selection for tool queries (getCurrentSelection /
+--- getLatestSelection). No auto-push: explicit send is the only delivery
+--- path (M.send_at_mention, wired to the send keymap). ModeChanged/FocusLost
+--- proved unreliable on tmux (see CLAUDE.md); poll is pull-only now, never
+--- pushes over the wire.
+--- notify: function(method, params) — kept for send_at_mention's use.
 function M.enable(notify)
-  if timer then
-    pcall(function()
-      timer:stop()
-      timer:close()
-    end)
-    timer = nil
-  end
   notify_fn = notify
-  timer = vim.uv.new_timer()
-  -- ponytail: 200ms visual-mode poll. ModeChanged/FocusLost delivery proved
-  -- unreliable (tmux/terminal dependent) — plain `V` + pane switch emits no
-  -- event at all. Poll only acts in visual mode; dedup in emit() stops spam.
+  M._latest = nil
   if poll_timer then
     pcall(function()
       poll_timer:stop()
       poll_timer:close()
     end)
   end
+  local prev_in_visual = false
   poll_timer = vim.uv.new_timer()
   poll_timer:start(
     200,
     200,
     vim.schedule_wrap(function()
       local m = vim.fn.mode()
-      if m == "v" or m == "V" or m == "\22" then
-        emit()
-      end
-    end)
-  )
-  augroup = vim.api.nvim_create_augroup("ClideSelection", { clear = true })
-  vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "ModeChanged", "FocusLost" }, {
-    group = augroup,
-    callback = function(ev)
-      -- Capture visual selection synchronously while still in visual mode,
-      -- so that when emit() fires after the debounce window we still have
-      -- the visual region even if the mode has already changed to normal.
-      local mode = vim.fn.mode()
-      if mode == "v" or mode == "V" or mode == "\22" then
+      local in_visual = (m == "v" or m == "V" or m == "\22")
+      if in_visual then
         local ok, sel = pcall(M.build)
         if ok and not sel.selection.isEmpty then
-          M._pending_selection = sel
-          -- Send immediately — FocusLost doesn't fire on tmux pane switch
-          -- so debounce timer (100ms) may not deliver before user switches.
-          local ls = M._last_sent
-          if
-            not (
-              ls
-              and ls.text == sel.text
-              and ls.selection.start.line == sel.selection.start.line
-              and ls.selection["end"].line == sel.selection["end"].line
-              and ls.selection.isEmpty == sel.selection.isEmpty
-              and ls.filePath == sel.filePath
-            )
-          then
-            M._latest = sel
-            M._last_sent = sel
-            notify_fn("selection_changed", sel)
-          end
+          M._latest = sel
         end
-      else
-        -- ModeChanged fires AFTER the mode has already flipped, so a
-        -- single-line visual selection (no CursorMoved in between) never
-        -- hits the branch above. If we just left visual mode, rebuild the
-        -- selection from the '< '> marks instead of the (now gone) "v" mark.
-        local old_mode = vim.v.event.old_mode or ""
-        local first = old_mode:sub(1, 1)
-        if first == "v" or first == "V" or first == "\22" then
-          local ok, sel = pcall(M.build_from_marks)
-          if ok and sel and not sel.selection.isEmpty then
-            M._pending_selection = sel
-          end
-        end
+      elseif prev_in_visual then
+        -- Just left visual mode without an explicit send: drop the stale
+        -- selection so getLatestSelection doesn't hand out phantom data
+        -- from a selection the user chose not to send (Esc = discard).
+        M._latest = nil
       end
-
-      -- FocusLost: user switching to Claude pane while still in visual mode.
-      -- Flush pending selection immediately (bypass emit()'s visual-mode guard).
-      -- Note: vim.fn.mode() may return "n" here - nvim can exit visual mode
-      -- before FocusLost callback fires. Use marks '< '> as fallback.
-      if ev.event == "FocusLost" then
-        local sel = M._pending_selection
-        if not sel then
-          -- Marks still hold last visual selection even after mode flips
-          local ok, msel = pcall(M.build_from_marks)
-          if ok and msel and not msel.selection.isEmpty then
-            sel = msel
-          end
-        end
-        if sel then
-          M._pending_selection = nil
-          local ls = M._last_sent
-          if
-            not (
-              ls
-              and ls.text == sel.text
-              and ls.selection.start.line == sel.selection.start.line
-              and ls.selection["end"].line == sel.selection["end"].line
-              and ls.selection.isEmpty == sel.selection.isEmpty
-              and ls.filePath == sel.filePath
-            )
-          then
-            M._latest = sel
-            M._last_sent = sel
-            notify_fn("selection_changed", sel)
-          end
-        end
-        return
-      end
-
-      timer:stop()
-      timer:start(100, 0, vim.schedule_wrap(emit))
-    end,
-  })
+      prev_in_visual = in_visual
+    end)
+  )
 end
 
 --- Disable selection tracking.
 function M.disable()
-  if timer then
-    pcall(function()
-      timer:stop()
-      timer:close()
-    end)
-    timer = nil
-  end
   if poll_timer then
     pcall(function()
       poll_timer:stop()
@@ -246,22 +117,103 @@ function M.disable()
     end)
     poll_timer = nil
   end
-  if augroup then
-    vim.api.nvim_del_augroup_by_id(augroup)
-    augroup = nil
-  end
   notify_fn = nil
 end
 
---- Send an at_mention notification for lines (1-based, converted to 0-based).
+--- Push a selection to all connected clients.
+--- Sends selection_changed (text + range) for live content and
+--- at_mentioned (filePath + range) for CLI's ide_opened_file attachment.
+local function push_selection(sel)
+  M._latest = sel
+  notify_fn("selection_changed", sel)
+  notify_fn("at_mentioned", {
+    filePath = sel.filePath,
+    lineStart = sel.selection.start.line,
+    lineEnd = sel.selection["end"].line,
+  })
+end
+
+--- Explicit send for lines (1-based, inclusive). Pushes selection_changed
+--- with live buffer text rather than at_mentioned's filePath+range (which
+--- only works if the buffer is saved — Claude re-reads from disk on that
+--- path). Reading nvim_buf_get_lines instead of disk means unsaved edits
+--- are sent as-is.
 function M.send_at_mention(line1, line2)
-  if notify_fn then
-    notify_fn("at_mentioned", {
-      filePath = vim.api.nvim_buf_get_name(0),
-      lineStart = line1 - 1,
-      lineEnd = line2 - 1,
-    })
+  if not notify_fn then
+    return
   end
+  local bufnr = vim.api.nvim_get_current_buf()
+  local file_path = vim.api.nvim_buf_get_name(bufnr)
+
+  -- Prefer visual marks for column-accurate selection when available
+  local mark_start = vim.fn.getpos("'<")
+  local mark_end = vim.fn.getpos("'>")
+  if mark_start[2] == line1 and mark_end[2] == line2 then
+    local vmode = vim.fn.visualmode()
+    if not vmode or vmode == "" then
+      vmode = (mark_start[2] == mark_end[2]) and "v" or "V"
+    end
+    local ok, lines = pcall(vim.fn.getregion, mark_start, mark_end, { type = vmode })
+    if ok and lines and #lines > 0 then
+      push_selection({
+        text = table.concat(lines, "\n"),
+        filePath = file_path,
+        fileUrl = "file://" .. file_path,
+        selection = {
+          start = { line = mark_start[2] - 1, character = mark_start[3] - 1 },
+          ["end"] = { line = mark_end[2], character = mark_end[3] },
+          isEmpty = false,
+        },
+      })
+      return
+    end
+  end
+
+  -- Fallback: send full lines
+  local lines = vim.api.nvim_buf_get_lines(bufnr, line1 - 1, line2, false)
+  push_selection({
+    text = table.concat(lines, "\n"),
+    filePath = file_path,
+    fileUrl = "file://" .. file_path,
+    selection = {
+      start = { line = line1 - 1, character = 0 },
+      ["end"] = { line = line2, character = 0 },
+      isEmpty = false,
+    },
+  })
+end
+
+--- Send an entire buffer's content (number or name) as a selection.
+--- Handles any loaded buffer: scratch, terminal output, fugitive, oil, help, etc.
+function M.send_buffer(bufnr_or_name)
+  if not notify_fn then
+    return
+  end
+  local bufnr = type(bufnr_or_name) == "number" and bufnr_or_name or vim.fn.bufnr(bufnr_or_name)
+  if bufnr < 0 or not vim.api.nvim_buf_is_loaded(bufnr) then
+    vim.notify("clide: buffer " .. tostring(bufnr_or_name) .. " not loaded", vim.log.levels.WARN)
+    return
+  end
+  local file_path = vim.api.nvim_buf_get_name(bufnr)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  -- Remove trailing empty line trim from nvim_buf_get_lines
+  if #lines > 0 and lines[#lines] == "" then
+    table.remove(lines)
+  end
+  push_selection({
+    text = table.concat(lines, "\n"),
+    filePath = file_path,
+    fileUrl = "file://" .. file_path,
+    selection = {
+      start = { line = 0, character = 0 },
+      ["end"] = { line = #lines, character = 0 },
+      isEmpty = false,
+    },
+  })
+  vim.notify(
+    "clide: sent buffer " .. tostring(bufnr) .. " (" .. #lines .. " lines)",
+    vim.log.levels.INFO
+  )
 end
 
 --- Get the most recent selection.

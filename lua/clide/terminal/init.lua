@@ -31,4 +31,14 @@ function M.toggle(env)
   M.provider().toggle(config.get().terminal.cmd, env)
 end
 
+--- Spawn an additional claude terminal (ignores state, always creates new pane).
+function M.spawn(env)
+  local p = M.provider()
+  if p.spawn then
+    p.spawn(config.get().terminal.cmd, env)
+  else
+    p.open(config.get().terminal.cmd, env)
+  end
+end
+
 return M

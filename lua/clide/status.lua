@@ -5,11 +5,24 @@ local watcher = nil
 local spinner_frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }
 local spinner_idx = 0
 local spinner_timer = nil
+local _prev_state = nil -- for transition detection
+local _failure_watcher = nil
+local _cwd_watcher = nil
 
 -- ponytail: single state file — two Neovim instances sharing it will clash.
 -- Per-port state files if multi-session lands in v2.
 function M.state_file()
   return vim.fs.joinpath(vim.fn.stdpath("state"), "clide", "status")
+end
+
+--- Signal file for PostToolUseFailure: Claude writes "tool_name|error" on failure.
+function M.failure_signal_file()
+  return vim.fs.joinpath(vim.fn.stdpath("state"), "clide", "failure_signal")
+end
+
+--- Signal file for CwdChanged: Claude writes new cwd, nvim picks it up.
+function M.cwd_signal_file()
+  return vim.fs.joinpath(vim.fn.stdpath("state"), "clide", "cwd_signal")
 end
 
 local function read_state()
@@ -26,13 +39,89 @@ function M.setup()
   local dir = vim.fs.dirname(M.state_file())
   vim.fn.mkdir(dir, "p")
   watcher = vim.uv.new_fs_event()
+  local idle_timer = nil
   watcher:start(
     dir,
     {},
     vim.schedule_wrap(function()
+      local current = read_state()
+      -- Notify on working→idle only if idle persists >3s (prevents spam from
+      -- streaming response chunks bouncing working/idle rapidly)
+      if _prev_state == "working" and current == "idle" then
+        if idle_timer then
+          idle_timer:stop()
+          idle_timer:close()
+        end
+        idle_timer = vim.uv.new_timer()
+        idle_timer:start(
+          3000,
+          0,
+          vim.schedule_wrap(function()
+            -- Re-check: still idle?
+            if read_state() == "idle" then
+              vim.notify("Claude finished — ready", vim.log.levels.INFO)
+            end
+          end)
+        )
+      elseif current == "working" then
+        -- Cancel pending idle notify when we go back to work
+        if idle_timer then
+          idle_timer:stop()
+          idle_timer:close()
+          idle_timer = nil
+        end
+      end
+      _prev_state = current
       pcall(vim.cmd, "redrawstatus")
     end)
   )
+
+  -- PostToolUseFailure watcher: read failure signal, notify user
+  _failure_watcher = vim.uv.new_fs_event()
+  _failure_watcher:start(
+    dir,
+    {},
+    vim.schedule_wrap(function(err, fname)
+      if err or not fname then
+        return
+      end
+      if fname ~= vim.fs.basename(M.failure_signal_file()) then
+        return
+      end
+      local ok, lines = pcall(vim.fn.readfile, M.failure_signal_file())
+      if not ok or not lines or #lines == 0 then
+        return
+      end
+      local msg = vim.trim(lines[1])
+      if msg ~= "" then
+        vim.notify("Claude: " .. msg, vim.log.levels.WARN)
+      end
+    end)
+  )
+
+  -- CwdChanged watcher: read new cwd, sync nvim
+  _cwd_watcher = vim.uv.new_fs_event()
+  _cwd_watcher:start(
+    dir,
+    {},
+    vim.schedule_wrap(function(err, fname)
+      if err or not fname then
+        return
+      end
+      if fname ~= vim.fs.basename(M.cwd_signal_file()) then
+        return
+      end
+      local ok, lines = pcall(vim.fn.readfile, M.cwd_signal_file())
+      if not ok or not lines or #lines == 0 then
+        return
+      end
+      local new_cwd = vim.trim(lines[1])
+      if new_cwd ~= "" and vim.fn.isdirectory(new_cwd) == 1 then
+        pcall(vim.cmd, "cd " .. vim.fn.fnameescape(new_cwd))
+      end
+    end)
+  )
+
   if not spinner_timer then
     spinner_timer = vim.uv.new_timer()
     spinner_timer:start(
@@ -51,6 +140,16 @@ function M.teardown()
     watcher:stop()
     watcher:close()
     watcher = nil
+  end
+  if _failure_watcher then
+    _failure_watcher:stop()
+    _failure_watcher:close()
+    _failure_watcher = nil
+  end
+  if _cwd_watcher then
+    _cwd_watcher:stop()
+    _cwd_watcher:close()
+    _cwd_watcher = nil
   end
   if spinner_timer then
     spinner_timer:stop()
@@ -93,6 +192,30 @@ function M.client_count()
   return count .. " clients"
 end
 
+--- lualine: IDE selection indicator. Mirrors CLI's IdeStatusIndicator.
+--- Returns "⧉ N lines" when selection active, "⧉ In {file}" when file open.
+function M.selection()
+  local state = require("clide").state
+  if not state.server or not state.connected then
+    return ""
+  end
+  local sel = require("clide.selection").latest()
+  if not sel then
+    return ""
+  end
+  local line_count = sel.selection
+    and not sel.selection.isEmpty
+    and sel.selection.start
+    and (sel.selection["end"].line - sel.selection.start.line + 1)
+  if line_count and line_count > 0 then
+    return "⧉ " .. line_count .. " lines"
+  end
+  if sel.filePath and sel.filePath ~= "" then
+    return "⧉ " .. vim.fn.fnamemodify(sel.filePath, ":t")
+  end
+  return ""
+end
+
 --- lualine: last tool Claude called. Returns empty when nothing dispatched yet.
 function M.last_tool()
   local state = require("clide").state
@@ -123,9 +246,11 @@ end
 function M.hooks_config()
   local file = M.state_file()
   local function write_cmd(state)
-    return "sh -c 'echo " .. state .. " > " .. vim.fn.shellescape(file) .. "'"
+    return "sh -c 'echo " .. state .. " > " .. vim.fn.shellescape(file) .. " 2>/dev/null'"
   end
   local signal_file = require("clide.follow").signal_file()
+  local failure_file = M.failure_signal_file()
+  local cwd_file = M.cwd_signal_file()
   return {
     hooks = {
       PreToolUse = { { hooks = { { type = "command", command = write_cmd("working") } } } },
@@ -136,7 +261,7 @@ function M.hooks_config()
           hooks = {
             {
               type = "command",
-              command = 'sh -c \'d=$(cat) && tool=$(printf "%s" "$d"'
+              command = 'sh -c \'d=$(cat 2>/dev/null) && tool=$(printf "%s" "$d"'
                 .. ' | sed -n "s/.*\\"tool_name\\"[[:space:]]*:[[:space:]]*'
                 .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
                 .. ' && fp=$(printf "%s" "$d"'
@@ -150,13 +275,42 @@ function M.hooks_config()
           },
         },
       },
+      PostToolUseFailure = {
+        {
+          hooks = {
+            {
+              type = "command",
+              command = 'sh -c \'d=$(cat 2>/dev/null) && tool=$(printf "%s" "$d"'
+                .. ' | sed -n "s/.*\\"tool_name\\"[[:space:]]*:[[:space:]]*'
+                .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
+                .. ' && [ -n "$tool" ] && printf "%s\\n" "$tool failed" > '
+                .. vim.fn.shellescape(failure_file)
+                .. "; exit 0'",
+            },
+          },
+        },
+      },
+      CwdChanged = {
+        {
+          hooks = {
+            {
+              type = "command",
+              command = 'sh -c \'d=$(cat 2>/dev/null) && cwd=$(printf "%s" "$d"'
+                .. ' | sed -n "s/.*\\"cwd\\"[[:space:]]*:[[:space:]]*'
+                .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
+                .. ' && [ -n "$cwd" ] && [ -d "$cwd" ]'
+                .. ' && printf "%s\\n" "$cwd" > '
+                .. vim.fn.shellescape(cwd_file)
+                .. "; exit 0'",
+            },
+          },
+        },
+      },
       SessionStart = {
         {
           hooks = {
             {
               type = "command",
-              -- no apostrophes in the snippet: it lives inside a
-              -- single-quoted sh string
               command = 'sh -c \'[ -n "$CLAUDE_CODE_SSE_PORT" ]'
                 .. ' && printf "%s\\n"'
                 .. ' "You are connected to a live Neovim editor'
@@ -167,6 +321,19 @@ function M.hooks_config()
                 .. ' "- getDiagnostics: query diagnostics from current buffer"'
                 .. ' "Visual selections made by the user are pushed to'
                 .. ' you automatically (at_mentioned) - no polling needed."'
+                .. "; exit 0'",
+            },
+          },
+        },
+      },
+      Setup = {
+        {
+          hooks = {
+            {
+              type = "command",
+              command = 'sh -c \'[ -n "$CLAUDE_CODE_SSE_PORT" ]'
+                .. ' && printf "clide.nvim session ready. nvim %s\\n" "$(nvim --version'
+                .. ' 2>/dev/null | head -1 || echo unknown)"'
                 .. "; exit 0'",
             },
           },

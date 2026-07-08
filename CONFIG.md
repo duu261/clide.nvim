@@ -11,6 +11,15 @@ All keys optional. `setup()` never required - defaults apply without it.
 
 ## Top-level
 
+### `autosave`
+
+```lua
+autosave = true  -- bool
+```
+
+Save all dirty buffers (`:wa`) before tool dispatch. Ensures Claude reads
+current content, not stale buffer state. Matches VS Code extension default.
+
 ### `autostart`
 
 ```lua
@@ -175,3 +184,106 @@ cmd_keymaps = {
   send_toggle = false,  -- disable visual send+toggle
 }
 ```
+
+## Session commands
+
+### `:ClideContinue`
+
+Continue the most recent Claude session. Launches `claude --continue` in a new
+terminal pane with IDE integration. Requires a clide server to be running.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mC", "<Cmd>ClideContinue<CR>", { desc = "clide: continue last session" })
+```
+
+### `:ClideSessions`
+
+Open a `vim.ui.select` picker over past Claude sessions from
+`~/.claude/sessions/`. Pick a session to resume it with `claude --resume <id>`.
+Sessions are sorted newest-first with timestamp, status, name, and working
+directory.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mh", "<Cmd>ClideSessions<CR>", { desc = "clide: browse sessions" })
+```
+
+### `:ClideWorktree [path]`
+
+Create a git worktree at `path` (defaults to `~/worktrees/<timestamp>`).
+Opens a terminal with `git worktree add`. Thin wrapper matching VS Code's
+`claude-vscode.createWorktree`.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mw", "<Cmd>ClideWorktree<CR>", { desc = "clide: create worktree" })
+```
+
+### `:ClideSendFile [path]`
+
+Send file content to Claude as a `selection_changed` notification. Defaults to
+current file. Equivalent to VS Code `Alt+K` @-mention for file references —
+content lands directly in Claude's context, no `openFile` round-trip needed.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mf", "<Cmd>ClideSendFile<CR>", { desc = "clide: send file" })
+```
+
+## Settings schema validation
+
+clide auto-configures `jsonls` (if installed) to validate `.claude/settings.json`
+against the official schema at `schemasstore.org`. No manual config needed —
+detected and set up during `clide.setup()`.
+
+If `jsonls` is not detected, the schema is bundled at
+`schemas/claude-code-settings.schema.json` (same file VS Code extension bundles,
+verified against `Anthropic.claude-code` v2.1.204). Configure jsonls manually:
+
+```lua
+require('lspconfig').jsonls.setup({
+  settings = {
+    json = {
+      schemas = {
+        {
+          fileMatch = { '/.claude/settings.json' },
+          url = 'https://json.schemastore.org/claude-code-settings.json',
+        },
+      },
+    },
+  },
+})
+```
+
+## Quickfix bridge
+
+Bidirectional quickfix integration — nvim-native feature VS Code can't match.
+
+### `:ClideSendQf`
+
+Send current quickfix list contents to Claude as context. Claude receives
+formatted entries (filename:line:col: text). Useful for "fix all these issues"
+workflows — populate quickfix from linters, grep, or Telescope, then push.
+
+### `:ClideEditsToQf`
+
+Populate quickfix with files Claude has edited during the session. Opens
+`:cwindow` for native `:cn`/`:cp` navigation. Automatically tracked whenever
+Claude writes a file.
+
+```lua
+-- Example maps:
+vim.keymap.set("n", "<Leader>mqf", "<Cmd>ClideSendQf<CR>", { desc = "clide: send quickfix" })
+vim.keymap.set("n", "<Leader>meq", "<Cmd>ClideEditsToQf<CR>", { desc = "clide: edits to qf" })
+```
+
+## `:ClideSetup`
+
+Interactive 4-step setup wizard (replaces VS Code walkthrough):
+1. Prerequisites — checks Claude CLI, plenary.nvim, Neovim >= 0.10
+2. Terminal provider — detects tmux/snacks/toggleterm, recommends best option
+3. Keymaps — prints default keybindings reference
+4. Start and test — instructions for `:ClideStart`
+
+Opens in a floating window. Press `q` or `<Esc>` to dismiss.
