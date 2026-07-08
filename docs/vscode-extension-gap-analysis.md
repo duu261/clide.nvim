@@ -185,3 +185,170 @@ Key: exit 2 is the only way to get model attention. Exit 1 = user sees it, model
 
 Claude Code CLI is v2.1.201 (this session). Internals captured from v2.1.198. Hook event count was 27 at capture; MessageDisplay is the 30th event as of v2.1.159. Verify event list against current binary: `HOOK_EVENTS` const in `src/entrypoints/sdk/coreTypes.ts`.
 
+## Verification: testing hooks end-to-end
+
+All hooks write to signal files under `vim.fn.stdpath("state")/clide/`.
+Hooks are installed via `:ClideInstallHooks` which merges into
+`.claude/settings.local.json`. Verification is manual (no plenary test
+harness for hook signal files — they depend on a running `claude` CLI).
+
+### Prerequisites
+
+```bash
+# Check hooks are installed
+cat .claude/settings.local.json | jq '.hooks | keys'
+# Expected: ["PreToolUse","PostToolUse","Stop","Notification",
+#            "PostToolUseFailure","CwdChanged","SessionStart","Setup"]
+```
+
+### Per-hook verification
+
+#### PreToolUse / Stop / Notification (statusline states)
+
+```
+1. :ClideStart — launch Claude
+2. Observe statusline: spinner ⣾ + "working"
+3. In Claude pane, run any tool (e.g. "list files")
+   → statusline stays "working" via spinner
+4. Wait for Claude to finish the turn
+   → after 3s idle debounce: "Claude finished — ready" notification
+5. In Claude pane, type a partial prompt but don't send
+   → no visual change (Notification only fires on actual notifications)
+```
+
+Signal file: `~/.local/state/nvim/clide/status`
+```bash
+watch -n 0.5 'cat ~/.local/state/nvim/clide/status 2>/dev/null'
+```
+Expected: cycles between `working`, `idle`, `waiting`.
+
+#### PostToolUse (follow mode)
+
+```
+1. :ClideStart
+2. set follow = "both" in config (or runtime: lua require("clide.config").get().follow = "both")
+3. In Claude: "write a comment at the top of <some-file>"
+4. Claude uses Edit/Write tool → nvim jumps to that file
+5. Notification: "Claude edited path/to/file"
+```
+
+Signal file: `~/.local/state/nvim/clide/follow_signal`
+```bash
+cat ~/.local/state/nvim/clide/follow_signal 2>/dev/null
+```
+Expected: file path written by hook when Edit or Write tool completes.
+
+#### PostToolUseFailure
+
+```
+1. :ClideStart
+2. In Claude: "run a command that will fail" (e.g. "cat /nonexistent")
+3. When Bash tool returns non-zero exit → notification "Claude: Bash failed"
+```
+
+Signal file: `~/.local/state/nvim/clide/failure_signal`
+```bash
+cat ~/.local/state/nvim/clide/failure_signal 2>/dev/null
+```
+Expected: `"<toolname> failed"` when any tool returns failure.
+
+#### CwdChanged
+
+```
+1. :ClideStart
+2. In Claude: "cd /tmp" (Claude can use /cd or Bash cd)
+3. Check nvim cwd: :pwd
+   → should match Claude's new cwd
+```
+
+Signal file: `~/.local/state/nvim/clide/cwd_signal`
+```bash
+cat ~/.local/state/nvim/clide/cwd_signal 2>/dev/null
+```
+Expected: new cwd path. Only written if directory exists on host.
+
+#### SessionStart / Setup
+
+```
+1. :ClideStart
+2. Claude session starts → SessionStart injects:
+   "You are connected to a live Neovim editor via clide.nvim..."
+   Setup injects:
+   "clide.nvim session ready. nvim NVIM vX.Y.Z"
+3. Verify: ask Claude "what IDE tools do you have?"
+   → Claude lists mcp__ide__* tools from SessionStart context
+```
+
+No signal files. Context injected via stdout (exit 0).
+
+### Quick smoke test (all hooks, one session)
+
+```bash
+# Terminal 1: watch signal files
+watch -n 0.3 'echo "=== status ==="; cat ~/.local/state/nvim/clide/status 2>/dev/null; echo "=== follow ==="; cat ~/.local/state/nvim/clide/follow_signal 2>/dev/null; echo "=== failure ==="; cat ~/.local/state/nvim/clide/failure_signal 2>/dev/null; echo "=== cwd ==="; cat ~/.local/state/nvim/clide/cwd_signal 2>/dev/null'
+```
+
+```
+# In nvim:
+:ClideStart
+:ClideInstallHooks  # re-install if needed
+
+# In Claude pane, run these in sequence:
+1. "list the files in this directory" → status: working → idle
+2. "edit README.md — add a comment at line 1" → follow signal fires
+3. "run: cat /nonexistent" → failure signal fires ("Bash failed")
+4. "/cd /tmp" then "what directory am I in" → cwd signal fires
+```
+
+### Automated test (Lua, in nvim)
+
+```lua
+-- Run inside nvim with clide started and hooks installed.
+-- Checks signal file infrastructure works (does not require Claude CLI).
+
+local signal_dir = vim.fn.stdpath("state") .. "/clide"
+
+-- 1. Status file exists after :ClideStart + hook fires
+local status_file = signal_dir .. "/status"
+local ok, content = pcall(vim.fn.readfile, status_file)
+assert(ok, "status file not readable")
+assert(#content > 0, "status file empty")
+
+-- 2. Signal files are in expected location
+local expected = { "status", "follow_signal", "failure_signal", "cwd_signal" }
+for _, name in ipairs(expected) do
+  local path = signal_dir .. "/" .. name
+  -- File may not exist yet (hooks only fire on events), but dir must
+  assert(vim.fn.isdirectory(signal_dir) == 1, "signal dir missing: " .. signal_dir)
+end
+
+-- 3. hooks_config() returns all 8 events
+local hooks = require("clide.status").hooks_config().hooks
+local events = vim.tbl_keys(hooks)
+assert(#events == 8, "expected 8 hook events, got " .. #events)
+local expected_events = {
+  "PreToolUse", "PostToolUse", "Stop", "Notification",
+  "PostToolUseFailure", "CwdChanged", "SessionStart", "Setup",
+}
+for _, ev in ipairs(expected_events) do
+  assert(hooks[ev], "missing hook: " .. ev)
+end
+
+print("All hook checks passed")
+```
+
+### Debugging
+
+```
+:ClideLog              — nvim-side log (server, tools, RPC)
+cat .claude/settings.local.json | jq .hooks  — check installed hooks
+ls ~/.local/state/nvim/clide/               — check signal files exist
+tail -f ~/.local/state/nvim/clide/status     — watch state transitions
+```
+
+Hook not firing? Check:
+1. `:ClideInstallHooks` ran (merges into settings.local.json)
+2. `.claude/` is in project root (where Claude reads settings from)
+3. Claude was started AFTER hooks were installed (SessionStart/Setup fire once)
+4. `claude` CLI version supports the event (all 8 events are in v2.1.90+)
+
