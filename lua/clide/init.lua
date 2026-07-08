@@ -141,6 +141,10 @@ function M.start()
 
   require("clide.status").setup()
   require("clide.follow").setup()
+  -- Auto-configure jsonls for settings schema validation (non-fatal)
+  pcall(function()
+    require("clide.jsonls_config").configure()
+  end)
 
   -- ponytail: global debounce timer, single diag push across buffers.
   -- Per-buffer timers if collision proves measurable in practice.

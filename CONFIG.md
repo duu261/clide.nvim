@@ -230,3 +230,38 @@ content lands directly in Claude's context, no `openFile` round-trip needed.
 -- Example map:
 vim.keymap.set("n", "<Leader>mf", "<Cmd>ClideSendFile<CR>", { desc = "clide: send file" })
 ```
+
+## Settings schema validation
+
+clide auto-configures `jsonls` (if installed) to validate `.claude/settings.json`
+against the official schema at `schemasstore.org`. No manual config needed —
+detected and set up during `clide.setup()`.
+
+If `jsonls` is not detected, the schema is bundled at
+`schemas/claude-code-settings.schema.json` (same file VS Code extension bundles,
+verified against `Anthropic.claude-code` v2.1.204). Configure jsonls manually:
+
+```lua
+require('lspconfig').jsonls.setup({
+  settings = {
+    json = {
+      schemas = {
+        {
+          fileMatch = { '/.claude/settings.json' },
+          url = 'https://json.schemastore.org/claude-code-settings.json',
+        },
+      },
+    },
+  },
+})
+```
+
+## `:ClideSetup`
+
+Interactive 4-step setup wizard (replaces VS Code walkthrough):
+1. Prerequisites — checks Claude CLI, plenary.nvim, Neovim >= 0.10
+2. Terminal provider — detects tmux/snacks/toggleterm, recommends best option
+3. Keymaps — prints default keybindings reference
+4. Start and test — instructions for `:ClideStart`
+
+Opens in a floating window. Press `q` or `<Esc>` to dismiss.

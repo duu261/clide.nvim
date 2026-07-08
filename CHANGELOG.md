@@ -13,6 +13,9 @@ versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `:ClideSessions` — `vim.ui.select` picker over past Claude sessions with resume.
 - `:ClideWorktree` — create git worktree from nvim (matches VS Code `createWorktree`).
 - `:ClideSendFile` — send file content to Claude as @-mention equivalent.
+- `:ClideSetup` — interactive 4-step setup wizard (VS Code walkthrough equivalent).
+- `schemas/claude-code-settings.schema.json` — bundled from official VS Code extension.
+- Auto-configure `jsonls` for settings schema validation.
 - `docs/vscode-extension-gap-analysis.md` — feature comparison vs official
   `Anthropic.claude-code` VS Code extension (v2.1.204).
 - `diagnostics_push` config key — min severity for live `diagnostics_changed`

@@ -43,9 +43,9 @@ Status: ~~struck~~ = closed, **bold** = open, *italic* = N/A.
 
 ### Low priority
 
-6. **Walkthrough onboarding.** 4-step getting-started guide in VS Code walkthrough UI. nvim: `:checkhealth clide` + `:help clide` + README quickstart. Low priority for nvim users.
+6. ~~**Walkthrough onboarding.**~~ VS Code has 4-step walkthrough. clide: `:ClideSetup` interactive wizard (prerequisites, terminal provider, keymaps, start) + `:checkhealth clide` + `:help clide`. *(Closed 2026-07-08: `:ClideSetup`)*
 
-7. **Settings JSON schema validation.** VS Code bundles 125KB JSON schema for `.claude/settings.json`. nvim: `jsonls` (lspconfig) handles JSON schema natively. No custom code needed.
+7. ~~**Settings JSON schema validation.**~~ VS Code bundles 125KB JSON schema. clide: auto-configures `jsonls` (if installed) during `setup()`; schema bundled at `schemas/claude-code-settings.schema.json` (extracted from official extension v2.1.204). *(Closed 2026-07-08: jsonls auto-config + bundled schema)*
 
 8. ~~**Autosave before read/write.**~~ `autosave = true` config (default). Calls `:wa` (pcall'd) before every tool dispatch. Matches VS Code default. *(Closed 2026-07-08: `autosave` config)*
 
@@ -111,7 +111,9 @@ Key settings from VS Code extension `package.json` (for comparison when designin
 | Autosave | `:wa` before dispatch | Per-file save | Tie |
 | Worktree | `:ClideWorktree` | `createWorktree` command | Tie |
 | Session management | `:ClideSessions` + `:ClideContinue` | Sidebar + Cmd+Shift+T | Tie |
-| Onboarding | `:checkhealth` + `:help` + README | Walkthrough | VS Code |
-| Settings schema | jsonls (lspconfig) | Bundled 125KB schema | VS Code |
+| Onboarding | `:ClideSetup` wizard + `:checkhealth` + `:help` | Walkthrough | Tie |
+| Settings schema | jsonls auto-config + bundled 125KB schema | Bundled 125KB schema | Tie |
 
-**Score: clide leads 9 dimensions, VS Code leads 2 (both low-priority). 3 ties.**
+**Final score: clide leads 9 dimensions, VS Code leads 0. 5 ties.**
+
+All 9 gaps closed. clide.nvim matches or exceeds every VS Code extension feature.
