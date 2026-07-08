@@ -27,14 +27,37 @@ function M.setup()
   local dir = vim.fs.dirname(M.state_file())
   vim.fn.mkdir(dir, "p")
   watcher = vim.uv.new_fs_event()
+  local idle_timer = nil
   watcher:start(
     dir,
     {},
     vim.schedule_wrap(function()
       local current = read_state()
-      -- Notify on working→idle transition (Claude finished responding)
+      -- Notify on working→idle only if idle persists >3s (prevents spam from
+      -- streaming response chunks bouncing working/idle rapidly)
       if _prev_state == "working" and current == "idle" then
-        vim.notify("Claude finished — ready for input", vim.log.levels.INFO)
+        if idle_timer then
+          idle_timer:stop()
+          idle_timer:close()
+        end
+        idle_timer = vim.uv.new_timer()
+        idle_timer:start(
+          3000,
+          0,
+          vim.schedule_wrap(function()
+            -- Re-check: still idle?
+            if read_state() == "idle" then
+              vim.notify("Claude finished — ready", vim.log.levels.INFO)
+            end
+          end)
+        )
+      elseif current == "working" then
+        -- Cancel pending idle notify when we go back to work
+        if idle_timer then
+          idle_timer:stop()
+          idle_timer:close()
+          idle_timer = nil
+        end
       end
       _prev_state = current
       pcall(vim.cmd, "redrawstatus")
