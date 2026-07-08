@@ -1,57 +1,48 @@
 --- Auto-configure jsonls for Claude Code settings schema validation.
 --- Matches VS Code extension's bundled schema support.
+--- No lspconfig calls on nvim >= 0.11 — avoids deprecation warnings.
 local M = {}
 
---- Configure jsonls to validate .claude/settings.json against the official schema.
---- Called automatically during setup() if jsonls is detected.
-function M.configure()
-  local ok, lspconfig = pcall(require, "lspconfig")
-  if not ok then
-    return false
-  end
-  if not lspconfig.jsonls then
-    return false
-  end
+local SCHEMA = {
+  fileMatch = { "/.claude/settings.json", "/.claude/settings.local.json" },
+  url = "https://json.schemastore.org/claude-code-settings.json",
+}
 
-  local ok2, jsonls_config = pcall(lspconfig.jsonls.get_default_config)
-  if not ok2 then
-    return false
-  end
-
-  -- Use schemastore.org URL (official, same as CLI references)
-  local schema = {
-    fileMatch = { "/.claude/settings.json", "/.claude/settings.local.json" },
-    url = "https://json.schemastore.org/claude-code-settings.json",
-  }
-
-  -- Merge with existing schemas, avoiding duplicates
-  local current_settings = vim.deepcopy(lspconfig.jsonls.settings or {})
-  if not current_settings.Lua then
-    current_settings = vim.tbl_deep_extend("keep", current_settings, jsonls_config.settings or {})
-  end
-  local json_settings = current_settings.json or {}
-  local schemas = json_settings.schemas or {}
-
-  -- Check if already configured
-  for _, s in ipairs(schemas) do
-    if s.url == schema.url then
-      return true -- already set up
+local function merge_schema(settings)
+  settings = vim.deepcopy(settings)
+  settings.json = settings.json or {}
+  settings.json.schemas = settings.json.schemas or {}
+  for _, s in ipairs(settings.json.schemas) do
+    if s.url == SCHEMA.url then
+      return settings
     end
   end
-
-  schemas[#schemas + 1] = schema
-  json_settings.schemas = schemas
-  current_settings.json = json_settings
-
-  lspconfig.jsonls.setup({
-    settings = current_settings,
-  })
-
-  return true
+  table.insert(settings.json.schemas, SCHEMA)
+  return settings
 end
 
---- Bundle the schema locally for offline validation.
---- Returns path to the bundled schema file.
+local function has_vim_lsp_config()
+  return type(vim.lsp) == "table" and type(vim.lsp.config) == "function"
+end
+
+function M.configure()
+  if has_vim_lsp_config() then
+    -- nvim >= 0.11: use vim.lsp.config — no lspconfig dependency
+    local ok, current = pcall(vim.lsp.config, "jsonls")
+    vim.lsp.config("jsonls", merge_schema(ok and current or {}))
+    return true
+  end
+
+  -- nvim < 0.11: lspconfig is safe — no deprecation __index warning.
+  -- Note: accessing lspconfig.jsonls triggers __index, so skip entirely on 0.11+.
+  local ok, lspconfig = pcall(require, "lspconfig")
+  if ok and lspconfig and lspconfig.jsonls then
+    pcall(lspconfig.jsonls.setup, { settings = merge_schema({}) })
+    return true
+  end
+  return false
+end
+
 function M.schema_path()
   return vim.fn.fnamemodify(
     vim.fn.globpath(
