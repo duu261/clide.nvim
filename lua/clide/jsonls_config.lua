@@ -21,25 +21,16 @@ local function merge_schema(settings)
   return settings
 end
 
-local function has_vim_lsp_config()
-  return type(vim.lsp) == "table" and type(vim.lsp.config) == "function"
-end
-
 function M.configure()
-  if has_vim_lsp_config() then
-    -- nvim >= 0.11: use vim.lsp.config — no lspconfig dependency
-    local ok, current = pcall(vim.lsp.config, "jsonls")
-    vim.lsp.config("jsonls", merge_schema(ok and current or {}))
+  -- nvim >= 0.11: vim.lsp.config. No require('lspconfig') — zero deprecation warns.
+  local ok, current = pcall(function()
+    return vim.lsp.config("jsonls")
+  end)
+  if ok then
+    pcall(vim.lsp.config, "jsonls", merge_schema(current or {}))
     return true
   end
 
-  -- nvim < 0.11: lspconfig is safe — no deprecation __index warning.
-  -- Note: accessing lspconfig.jsonls triggers __index, so skip entirely on 0.11+.
-  local ok, lspconfig = pcall(require, "lspconfig")
-  if ok and lspconfig and lspconfig.jsonls then
-    pcall(lspconfig.jsonls.setup, { settings = merge_schema({}) })
-    return true
-  end
   return false
 end
 
