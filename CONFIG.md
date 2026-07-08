@@ -256,6 +256,28 @@ require('lspconfig').jsonls.setup({
 })
 ```
 
+## Quickfix bridge
+
+Bidirectional quickfix integration — nvim-native feature VS Code can't match.
+
+### `:ClideSendQf`
+
+Send current quickfix list contents to Claude as context. Claude receives
+formatted entries (filename:line:col: text). Useful for "fix all these issues"
+workflows — populate quickfix from linters, grep, or Telescope, then push.
+
+### `:ClideEditsToQf`
+
+Populate quickfix with files Claude has edited during the session. Opens
+`:cwindow` for native `:cn`/`:cp` navigation. Automatically tracked whenever
+Claude writes a file.
+
+```lua
+-- Example maps:
+vim.keymap.set("n", "<Leader>mqf", "<Cmd>ClideSendQf<CR>", { desc = "clide: send quickfix" })
+vim.keymap.set("n", "<Leader>meq", "<Cmd>ClideEditsToQf<CR>", { desc = "clide: edits to qf" })
+```
+
 ## `:ClideSetup`
 
 Interactive 4-step setup wizard (replaces VS Code walkthrough):
