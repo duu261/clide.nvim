@@ -5,6 +5,7 @@ local watcher = nil
 local spinner_frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }
 local spinner_idx = 0
 local spinner_timer = nil
+local _prev_state = nil -- for transition detection
 
 -- ponytail: single state file — two Neovim instances sharing it will clash.
 -- Per-port state files if multi-session lands in v2.
@@ -30,6 +31,12 @@ function M.setup()
     dir,
     {},
     vim.schedule_wrap(function()
+      local current = read_state()
+      -- Notify on working→idle transition (Claude finished responding)
+      if _prev_state == "working" and current == "idle" then
+        vim.notify("Claude finished — ready for input", vim.log.levels.INFO)
+      end
+      _prev_state = current
       pcall(vim.cmd, "redrawstatus")
     end)
   )

@@ -11,6 +11,16 @@ function M.setup()
   vim.api.nvim_create_user_command("ClideStop", clide.stop, { desc = "Stop clide server" })
   vim.api.nvim_create_user_command("ClideRestart", clide.restart, { desc = "Restart clide server" })
   vim.api.nvim_create_user_command("ClideToggle", clide.toggle, { desc = "Toggle claude terminal" })
+  vim.api.nvim_create_user_command("ClideFocus", function()
+    if not clide.state.server then
+      vim.notify("clide: server not running", vim.log.levels.WARN)
+      return
+    end
+    require("clide.terminal").toggle({
+      CLAUDE_CODE_SSE_PORT = tostring(clide.state.server.port),
+      ENABLE_IDE_INTEGRATION = "true",
+    })
+  end, { desc = "Focus the Claude terminal pane" })
   vim.api.nvim_create_user_command(
     "ClideSpawn",
     clide.spawn,
@@ -22,6 +32,12 @@ function M.setup()
       "clide: sent lines " .. cmd.line1 .. "-" .. cmd.line2 .. " to Claude",
       vim.log.levels.INFO
     )
+    if require("clide.config").get().focus_on_send then
+      require("clide.terminal").toggle({
+        CLAUDE_CODE_SSE_PORT = tostring(require("clide").state.server.port),
+        ENABLE_IDE_INTEGRATION = "true",
+      })
+    end
   end, { range = true, desc = "Send selection to claude as at-mention" })
   vim.api.nvim_create_user_command("ClideSendBuffer", function(cmd)
     require("clide.selection").send_buffer(cmd.args)
