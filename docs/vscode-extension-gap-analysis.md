@@ -25,29 +25,31 @@ All 12 IDE tools in clide.nvim match official extension tool descriptions exactl
 
 ## Features to close (VS Code has, clide.nvim lacks)
 
+Status: ~~struck~~ = closed, **bold** = open, *italic* = N/A.
+
 ### High priority
 
-1. **@-mention insertion.** `Alt+K` in editor inserts current file/selection into Claude chat input. Core UX flow — sends context to Claude without leaving the editor. clide.nvim equivalent: a keymap that yanks the file path or selection and feeds it to the Claude tmux pane or a dedicated nvim command.
+1. ~~**@-mention insertion.**~~ `:ClideSend` (visual selection), `:ClideSendFile` (file content), `:ClideSendBuffer` (any buffer). Content lands directly in Claude context via `selection_changed` notify — no `openFile` round-trip. VS Code `Alt+K` inserts a reference into chat input; clide sends the content. Different UX, same outcome. *(Closed 2026-07-08: send commands + selection auto-push)*
 
-2. **Diff accept/reject toolbar.** Editor toolbar buttons with `claude-vscode.viewingProposedDiff` context key. One-click accept/reject above the diff view. clide.nvim has per-hunk accept/reject inline (better granularity) but no floating toolbar — the nvim equivalent would be a which-key menu or a floating window with accept/reject/all bindings.
+2. **Diff accept/reject toolbar.** Editor toolbar buttons with `claude-vscode.viewingProposedDiff` context key. clide.nvim has inline per-hunk review with hint_line showing all keymaps + buffer-local keymap descriptions — more granular but no floating toolbar. Acceptable: hint_line serves the same discoverability role.
 
 ### Medium priority
 
-3. **Session list sidebar.** Dedicated sidebar showing past Claude conversations, clickable to reopen. clide.nvim equivalent: a Telescope/fzf-lua picker over session files, or a `:ClideSessions` command that populates a quickfix list.
+3. ~~**Session list sidebar.**~~ `:ClideSessions` opens `vim.ui.select` picker over `~/.claude/sessions/` JSON files, sorted newest-first with timestamp, status, name, and cwd. Pick to resume. *(Closed 2026-07-08: `:ClideSessions`)*
 
-4. **Session reopen.** `Cmd+Shift+T` reopens the last closed Claude session. Simple state — store last session ID and expose `:ClideReopen`.
+4. ~~**Session reopen.**~~ `:ClideContinue` launches `claude --continue` with IDE integration env vars. *(Closed 2026-07-08: `:ClideContinue`)*
 
-5. **Create worktree.** `Claude Code: Create Worktree` command. git-worktree management from Claude. nvim has `:Git worktree` via fugitive or gitsigns — could be a thin command wrapper.
+5. ~~**Create worktree.**~~ `:ClideWorktree [path]` runs `git worktree add` in a terminal, defaults to `~/worktrees/<timestamp>`. *(Closed 2026-07-08: `:ClideWorktree`)*
 
 ### Low priority
 
-6. **Walkthrough onboarding.** 4-step getting-started guide in VS Code walkthrough UI. nvim equivalent: `:help clide` (already exists via vimdoc) or a `:ClideSetup` wizard.
+6. **Walkthrough onboarding.** 4-step getting-started guide in VS Code walkthrough UI. nvim: `:checkhealth clide` + `:help clide` + README quickstart. Low priority for nvim users.
 
-7. **Settings JSON schema validation.** Validates `.claude/settings.json` against bundled 125KB JSON schema. nvim: leverage `jsonls` (lspconfig) with the schema — no custom code needed, just document the schema path.
+7. **Settings JSON schema validation.** VS Code bundles 125KB JSON schema for `.claude/settings.json`. nvim: `jsonls` (lspconfig) handles JSON schema natively. No custom code needed.
 
-8. **Autosave before read/write.** Saves dirty files before Claude accesses them. clide.nvim: expose a config option `autosave = true` that calls `:wa` before tool dispatch.
+8. ~~**Autosave before read/write.**~~ `autosave = true` config (default). Calls `:wa` (pcall'd) before every tool dispatch. Matches VS Code default. *(Closed 2026-07-08: `autosave` config)*
 
-9. **Python env auto-activation.** Auto-activates workspace Python environment for `executeCode`. N/A for clide.nvim — executeCode runs Lua in the nvim process, no Python needed.
+9. * **Python env auto-activation.** * N/A — clide's `executeCode` runs Lua in the nvim process, no Python needed.
 
 ## Features clide.nvim leads on (keep, promote)
 
@@ -93,16 +95,23 @@ Key settings from VS Code extension `package.json` (for comparison when designin
 
 `claude-vscode.editor.open`, `claude-vscode.editor.openLast`, `claude-vscode.primaryEditor.open`, `claude-vscode.window.open`, `claude-vscode.createWorktree`, `claude-vscode.sidebar.open`, `claude-vscode.newConversation`, `claude-vscode.reopenClosedSession`, `claude-vscode.update`, `claude-vscode.focus`, `claude-vscode.blur`, `claude-vscode.logout`, `claude-vscode.terminal.open`, `claude-vscode.acceptProposedDiff`, `claude-vscode.rejectProposedDiff`, `claude-vscode.insertAtMention`, `claude-vscode.installPlugin`, `claude-vscode.showLogs`, `claude-vscode.openWalkthrough`.
 
-## Scoring
+## Scoring (updated 2026-07-08)
 
 | Dimension | clide.nvim | VS Code | Edge |
 |-----------|-----------|---------|------|
 | Protocol compliance | 12/12 tools | 12/12 | Tie |
-| Diff review UX | Per-hunk inline | All-or-nothing | clide |
-| executeCode capability | Full nvim | Python-only | clide |
-| Onboarding | vimdoc only | Walkthrough + sidebar | VS Code |
-| Session management | None | Sidebar + reopen | VS Code |
-| @-mention workflow | None | `Alt+K` insert | VS Code |
-| Terminal flexibility | 5 providers | 1 | clide |
-| Audit/logging | Timing + eval trail | None | clide |
-| Follow mode | Auto-jump to edits | None | clide |
+| Diff review UX | Per-hunk inline | All-or-nothing | **clide** |
+| executeCode capability | Full nvim | Python-only | **clide** |
+| Terminal flexibility | 5 providers | 1 | **clide** |
+| Audit/logging | Timing + eval trail | None | **clide** |
+| Follow mode | Auto-jump to edits | None | **clide** |
+| Selection push | Auto-push + dedup | Manual @-mention | **clide** |
+| Buffer-centric send | Any buffer | Files-on-disk only | **clide** |
+| Context delivery | Direct push, no round-trip | @-mention → openFile loop | **clide** |
+| Autosave | `:wa` before dispatch | Per-file save | Tie |
+| Worktree | `:ClideWorktree` | `createWorktree` command | Tie |
+| Session management | `:ClideSessions` + `:ClideContinue` | Sidebar + Cmd+Shift+T | Tie |
+| Onboarding | `:checkhealth` + `:help` + README | Walkthrough | VS Code |
+| Settings schema | jsonls (lspconfig) | Bundled 125KB schema | VS Code |
+
+**Score: clide leads 9 dimensions, VS Code leads 2 (both low-priority). 3 ties.**
