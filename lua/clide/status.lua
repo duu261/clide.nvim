@@ -177,7 +177,7 @@ end
 function M.hooks_config()
   local file = M.state_file()
   local function write_cmd(state)
-    return "sh -c 'echo " .. state .. " > " .. vim.fn.shellescape(file) .. "'"
+    return "sh -c 'echo " .. state .. " > " .. vim.fn.shellescape(file) .. " 2>/dev/null'"
   end
   local signal_file = require("clide.follow").signal_file()
   return {
@@ -190,7 +190,7 @@ function M.hooks_config()
           hooks = {
             {
               type = "command",
-              command = 'sh -c \'d=$(cat) && tool=$(printf "%s" "$d"'
+              command = 'sh -c \'d=$(cat 2>/dev/null) && tool=$(printf "%s" "$d"'
                 .. ' | sed -n "s/.*\\"tool_name\\"[[:space:]]*:[[:space:]]*'
                 .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
                 .. ' && fp=$(printf "%s" "$d"'
@@ -209,8 +209,6 @@ function M.hooks_config()
           hooks = {
             {
               type = "command",
-              -- no apostrophes in the snippet: it lives inside a
-              -- single-quoted sh string
               command = 'sh -c \'[ -n "$CLAUDE_CODE_SSE_PORT" ]'
                 .. ' && printf "%s\\n"'
                 .. ' "You are connected to a live Neovim editor'
