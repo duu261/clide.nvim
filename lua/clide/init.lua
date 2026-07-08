@@ -150,12 +150,20 @@ function M.start()
     if wk_ok and wk.add then
       wk.add({
         { "<Leader>m", group = "clide" },
-        { "<Leader>mt", desc = "Toggle Claude" },
+        { "<Leader>mt", desc = "Toggle Terminal" },
         { "<Leader>ms", desc = "Start Server" },
         { "<Leader>mq", desc = "Stop Server" },
         { "<Leader>ml", desc = "View Log" },
         { "<Leader>me", desc = "Send Selection", mode = "x" },
         { "<Leader>mz", desc = "Send + Toggle", mode = "x" },
+        { "<Leader>mf", desc = "Send File" },
+        { "<Leader>mb", desc = "Send Buffer (pick)" },
+        { "<Leader>mC", desc = "Continue Session" },
+        { "<Leader>mh", desc = "Browse Sessions" },
+        { "<Leader>mw", desc = "Create Worktree" },
+        { "<Leader>mqf", desc = "Send Quickfix" },
+        { "<Leader>meq", desc = "Edits to Quickfix" },
+        { "<Leader>mdq", desc = "Diags to Quickfix" },
       })
     end
   end)

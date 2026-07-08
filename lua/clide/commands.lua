@@ -84,6 +84,35 @@ function M.setup()
   vim.api.nvim_create_user_command("ClideDiagToQf", function()
     require("clide.qf_bridge").diag_to_qf()
   end, { desc = "Populate quickfix with diagnostics (Claude-visible lints)" })
+  vim.api.nvim_create_user_command("ClideBufferPick", function()
+    local bufs = vim.fn.getbufinfo({ buflisted = true })
+    local items = {}
+    for _, b in ipairs(bufs) do
+      local name = vim.fn.fnamemodify(b.name, ":~:.")
+      if b.name ~= "" then
+        table.insert(items, {
+          label = string.format("%s%s", name, b.changed == 1 and " [+]" or ""),
+          bufnr = b.bufnr,
+          name = b.name,
+        })
+      end
+    end
+    if #items == 0 then
+      vim.notify("clide: no listed buffers", vim.log.levels.WARN)
+      return
+    end
+    vim.ui.select(items, {
+      prompt = "Send buffer to Claude",
+      kind = "clide",
+      format_item = function(item)
+        return item.label
+      end,
+    }, function(choice)
+      if choice then
+        require("clide.selection").send_buffer(choice.bufnr)
+      end
+    end)
+  end, { desc = "Pick a buffer to send to Claude (nvim-native picker)" })
   vim.api.nvim_create_user_command("ClideSendFile", function(cmd)
     local path = cmd.args and #cmd.args > 0 and vim.fn.expand(cmd.args) or vim.fn.expand("%")
     local lines = vim.fn.readfile(path)
