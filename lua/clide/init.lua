@@ -265,4 +265,16 @@ function M.toggle()
   end
 end
 
+function M.spawn()
+  if not M.state.server then
+    M.start()
+    return
+  end
+  require("clide.terminal").spawn({
+    CLAUDE_CODE_SSE_PORT = tostring(M.state.server.port),
+    ENABLE_IDE_INTEGRATION = "true",
+  })
+  vim.notify("clide: spawned new claude pane", vim.log.levels.INFO)
+end
+
 return M

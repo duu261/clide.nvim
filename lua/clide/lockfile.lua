@@ -33,6 +33,7 @@ function M.write(port, token)
     ideName = "Neovim",
     transport = "ws",
     authToken = token,
+    runningInWindows = false, -- explicit: no WSL path conversion
   })
   local path = M.path(port)
   fs.write_file(path, data, 384) -- 0600

@@ -23,6 +23,7 @@ function M.build()
       text = table.concat(lines, "\n"),
       filePath = file_path,
       fileUrl = "file://" .. file_path,
+
       selection = {
         start = { line = spos[2] - 1, character = spos[3] - 1 },
         ["end"] = { line = epos[2], character = epos[3] }, -- end exclusive
@@ -38,6 +39,7 @@ function M.build()
     text = "",
     filePath = file_path,
     fileUrl = "file://" .. file_path,
+
     selection = { start = pos, ["end"] = pos, isEmpty = true },
   }
 end
@@ -58,6 +60,7 @@ function M.build_from_marks()
     text = table.concat(lines, "\n"),
     filePath = file_path,
     fileUrl = "file://" .. file_path,
+
     selection = {
       start = { line = spos[2] - 1, character = spos[3] - 1 },
       ["end"] = { line = epos[2], character = epos[3] }, -- end exclusive
@@ -128,11 +131,47 @@ function M.send_at_mention(line1, line2)
   end
   local bufnr = vim.api.nvim_get_current_buf()
   local file_path = vim.api.nvim_buf_get_name(bufnr)
+
+  -- Prefer visual marks for column-accurate selection when available
+  -- (user selected a word in visual mode then :ClideSend).
+  -- Verify marks match command range to avoid using stale marks from prior
+  -- visual mode when user typed an explicit line range.
+  local mark_start = vim.fn.getpos("'<")
+  local mark_end = vim.fn.getpos("'>")
+  if mark_start[2] == line1 and mark_end[2] == line2 then
+    local vmode = vim.fn.visualmode()
+    if not vmode or vmode == "" then
+      -- visualmode() is empty after :'<,'> exit from visual mode (leader keymap).
+      -- Infer: same line = charwise (the common word-select case),
+      -- multi-line = linewise (safe, same as full-line fallback).
+      vmode = (mark_start[2] == mark_end[2]) and "v" or "V"
+    end
+    local ok, lines = pcall(vim.fn.getregion, mark_start, mark_end, { type = vmode })
+    if ok and lines and #lines > 0 then
+      local sel = {
+        text = table.concat(lines, "\n"),
+        filePath = file_path,
+        fileUrl = "file://" .. file_path,
+
+        selection = {
+          start = { line = mark_start[2] - 1, character = mark_start[3] - 1 },
+          ["end"] = { line = mark_end[2], character = mark_end[3] },
+          isEmpty = false,
+        },
+      }
+      M._latest = sel
+      notify_fn("selection_changed", sel)
+      return
+    end
+  end
+
+  -- Fallback: send full lines
   local lines = vim.api.nvim_buf_get_lines(bufnr, line1 - 1, line2, false)
   local sel = {
     text = table.concat(lines, "\n"),
     filePath = file_path,
     fileUrl = "file://" .. file_path,
+
     selection = {
       start = { line = line1 - 1, character = 0 },
       ["end"] = { line = line2, character = 0 },
@@ -141,6 +180,41 @@ function M.send_at_mention(line1, line2)
   }
   M._latest = sel
   notify_fn("selection_changed", sel)
+end
+
+--- Send an entire buffer's content (number or name) as a selection.
+--- Handles any loaded buffer: scratch, terminal output, fugitive, oil, help, etc.
+function M.send_buffer(bufnr_or_name)
+  if not notify_fn then
+    return
+  end
+  local bufnr = type(bufnr_or_name) == "number" and bufnr_or_name or vim.fn.bufnr(bufnr_or_name)
+  if bufnr < 0 or not vim.api.nvim_buf_is_loaded(bufnr) then
+    vim.notify("clide: buffer " .. tostring(bufnr_or_name) .. " not loaded", vim.log.levels.WARN)
+    return
+  end
+  local file_path = vim.api.nvim_buf_get_name(bufnr)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  -- Remove trailing empty line trim from nvim_buf_get_lines
+  if #lines > 0 and lines[#lines] == "" then
+    table.remove(lines)
+  end
+  local sel = {
+    text = table.concat(lines, "\n"),
+    filePath = file_path,
+    fileUrl = "file://" .. file_path,
+    selection = {
+      start = { line = 0, character = 0 },
+      ["end"] = { line = #lines, character = 0 },
+      isEmpty = false,
+    },
+  }
+  M._latest = sel
+  notify_fn("selection_changed", sel)
+  vim.notify(
+    "clide: sent buffer " .. tostring(bufnr) .. " (" .. #lines .. " lines)",
+    vim.log.levels.INFO
+  )
 end
 
 --- Get the most recent selection.

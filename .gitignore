@@ -8,3 +8,5 @@ doc/tags
 docs/tmp/
 
 .superpowers/
+.claude-code-source
+.cc-leak

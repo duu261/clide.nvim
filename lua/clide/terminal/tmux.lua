@@ -17,12 +17,7 @@ local function pane_alive()
   return out.code == 0 and out.stdout:find(pane_id, 1, true) ~= nil
 end
 
-function M.open(cmd, env)
-  if pane_alive() then
-    vim.system({ "tmux", "select-pane", "-t", pane_id }):wait()
-    return
-  end
-
+local function split_pane(cmd, env)
   local cfg = config.get().terminal
   local args = { "tmux", "split-window", "-P", "-F", "#{pane_id}", "-d", "-h" }
   if cfg.split_side == "left" then
@@ -39,12 +34,25 @@ function M.open(cmd, env)
   local out = vim.system(args):wait()
   if out.code ~= 0 then
     log.log("error", "tmux split-window failed: " .. (out.stderr or ""))
+    return nil
+  end
+  local pid = vim.trim(out.stdout)
+  local project = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
+  vim.system({ "tmux", "select-pane", "-T", "clide:" .. project, "-t", pid }):wait()
+  return pid
+end
+
+function M.open(cmd, env)
+  if pane_alive() then
+    vim.system({ "tmux", "select-pane", "-t", pane_id }):wait()
     return
   end
-  pane_id = vim.trim(out.stdout)
+  pane_id = split_pane(cmd, env)
+end
 
-  local project = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
-  vim.system({ "tmux", "select-pane", "-T", "clide:" .. project, "-t", pane_id }):wait()
+--- Spawn an additional claude terminal pane without replacing the tracked one.
+function M.spawn(cmd, env)
+  return split_pane(cmd, env)
 end
 
 function M.close()

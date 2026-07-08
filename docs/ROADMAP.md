@@ -5,15 +5,10 @@ plan + tester notes in `docs/human_test_plan_v1.md`).
 
 ## Bugs / gaps (next up)
 
-- **Single-line visual selection lost** — select 1 line, Esc, selection not
-  sent; needs cursor wiggle. `ModeChanged` autocmd misses the case (no
-  `CursorMoved` during visual→normal); `build_from_marks` fallback at
-  `selection.lua:79-81` races. Needs headless spec first (evented surface).
-- **T9 `:ClideReviewTab`** — never manually tested. Verify escape hatch:
-  inline review → classic diff tab, `ga`/`gr`/`:w`, partial-resolve guard.
-- **T16 disconnect notify** — root-caused and fixed in `ca73a71`: ws.stop's
-  vim.schedule'd on_disconnect raced `M.stop()`'s `M.state = {}` wipe; now
-  called synchronously. Verify manually after next nvim restart.
+- **T9 `:ClideReviewTab`** — manually verified 2026-07-08: pass.
+  `ga` = full accept (classic tab has no per-hunk granularity — stay
+  inline for that). Partial-resolve guard works.
+- **T16 disconnect notify** — fixed in `ca73a71`. Verified manually (2026-07-08):
 - **Stop/start lifecycle** — covered: ws sync-disconnect (ws_spec,
   `4864e8d`) + init stop/start recreation (init_spec, `2a3f3d6`).
 
@@ -40,6 +35,8 @@ plan + tester notes in `docs/human_test_plan_v1.md`).
 ### Review flow
 - **Edit-then-accept** — allow modifying a hunk in place before accepting;
   today it's binary accept/reject.
+- **Return to inline** — reverse of `:ClideReviewTab`: from classic diff tab,
+  go back to inline review mode. Merge scratch edits back into hunk state.
 - **Review history** — ring of resolved reviews with `:ClideReviewLog`;
   answer "what did I accept 10 minutes ago" without git archaeology.
 - **Follow + review fusion** — after follow jumps to an edited file, flash
