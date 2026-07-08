@@ -1,108 +1,131 @@
---- Interactive setup wizard (:ClideSetup). Replaces VS Code walkthrough.
+--- Interactive setup wizard (:ClideSetup). Matches VS Code walkthrough steps.
+--- Content adapted from official Anthropic.claude-code extension walkthrough.
 local M = {}
 
+--- Step 1: Welcome (matches VS Code step1.md)
+local function step_welcome(width)
+  local lines = {}
+  lines[#lines + 1] = "clide.nvim helps you write, edit, and understand"
+  lines[#lines + 1] = "code right in Neovim."
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Claude can read your files, make edits, run terminal"
+  lines[#lines + 1] = "commands, and help you navigate complex codebases."
+  lines[#lines + 1] = "It understands context and works alongside you like"
+  lines[#lines + 1] = "a knowledgeable teammate."
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "clide.nvim runs Claude in a terminal pane beside"
+  lines[#lines + 1] = "nvim — tmux, snacks, toggleterm, or native."
+
+  local claude = vim.fn.executable("claude") == 1
+  local plenary_ok, _ = pcall(require, "plenary")
+  local has_uv = pcall(vim.loop.new_timer) or pcall(vim.uv.new_timer)
+  local all_ok = claude and plenary_ok and has_uv
+
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Prerequisites:"
+  lines[#lines + 1] = "  " .. (claude and "✓" or "✗") .. " Claude CLI (claude)"
+  lines[#lines + 1] = "  " .. (plenary_ok and "✓" or "✗") .. " plenary.nvim"
+  lines[#lines + 1] = "  " .. (has_uv and "✓" or "✗") .. " Neovim >= 0.10"
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = all_ok and "  ✓ Ready" or "  ✗ Install missing prerequisites first"
+
+  return all_ok, lines
+end
+
+--- Step 2: Launch Claude (matches VS Code step2.md)
+local function step_launch(width)
+  local lines = {}
+  lines[#lines + 1] = "Run :ClideStart or press <Leader>ms to launch"
+  lines[#lines + 1] = "Claude in a terminal pane beside nvim."
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Toggle Claude terminal: <Leader>mt (:ClideToggle)"
+  lines[#lines + 1] = "Spawn another Claude pane: :ClideSpawn"
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Terminal provider detected:"
+
+  local in_tmux = vim.env.TMUX ~= nil
+  local has_snacks = pcall(require, "snacks")
+  local has_toggleterm = pcall(require, "toggleterm")
+
+  if in_tmux then
+    lines[#lines + 1] = "  tmux (active) — Claude opens in a new pane"
+  elseif has_snacks then
+    lines[#lines + 1] = "  snacks.nvim — Claude opens in snacks terminal"
+  elseif has_toggleterm then
+    lines[#lines + 1] = "  toggleterm.nvim — Claude opens in toggleterm"
+  else
+    lines[#lines + 1] = "  native — Claude opens in :terminal split"
+  end
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Prefer a different provider? Set it in setup():"
+  lines[#lines + 1] = "  require('clide').setup({"
+  lines[#lines + 1] = "    terminal = { provider = 'tmux' }"
+  lines[#lines + 1] = "  })"
+
+  return true, lines
+end
+
+--- Step 3: Send context (matches VS Code step3.md)
+local function step_send(width)
+  local lines = {}
+  lines[#lines + 1] = "Ask questions, request changes, or get help"
+  lines[#lines + 1] = "understanding your code. Claude can:"
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "  • Explain what code does"
+  lines[#lines + 1] = "  • Fix bugs and errors"
+  lines[#lines + 1] = "  • Write new features"
+  lines[#lines + 1] = "  • Refactor existing code"
+  lines[#lines + 1] = "  • Run terminal commands"
+  lines[#lines + 1] = "  • Execute Lua in nvim (executeCode)"
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Context you can send (no @-mention needed —"
+  lines[#lines + 1] = "content arrives directly in Claude's context):"
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "  Visual select → <Leader>me  (:ClideSend)"
+  lines[#lines + 1] = "  Current file  → :ClideSendFile"
+  lines[#lines + 1] = "  Any buffer    → :ClideSendBuffer <name>"
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Advantage over VS Code: content lands directly —"
+  lines[#lines + 1] = "no round-trip openFile call. Unsaved edits"
+  lines[#lines + 1] = "are sent as-is."
+
+  return true, lines
+end
+
+--- Step 4: Sessions (matches VS Code step4.md)
+local function step_sessions(width)
+  local lines = {}
+  lines[#lines + 1] = "Access your chat history and start new"
+  lines[#lines + 1] = "conversations anytime."
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Conversations saved automatically."
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "  Browse past sessions:  :ClideSessions"
+  lines[#lines + 1] = "  Resume most recent:    :ClideContinue"
+  lines[#lines + 1] = "  New conversation:      :ClideSpawn"
+  lines[#lines + 1] = "  Create worktree:       :ClideWorktree"
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Session data in ~/.claude/sessions/."
+  lines[#lines + 1] = "Each session: timestamp, name, status, cwd."
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "Pro tip: review changes inline — per-hunk"
+  lines[#lines + 1] = "accept/reject with <Leader>ma / <Leader>mr."
+  lines[#lines + 1] = "VS Code can't do this at hunk granularity."
+
+  return true, lines
+end
+
 local STEPS = {
-  {
-    title = "Check prerequisites",
-    run = function()
-      local results = {}
-      -- Claude CLI
-      local claude = vim.fn.executable("claude") == 1
-      results[#results + 1] = claude and "claude CLI: found"
-        or "claude CLI: NOT FOUND (install from anthropic.com)"
-      -- Plenary
-      local plenary_ok, _ = pcall(require, "plenary")
-      results[#results + 1] = plenary_ok and "plenary.nvim: OK"
-        or "plenary.nvim: MISSING (required dependency)"
-      -- Neovim version
-      local has_uv = pcall(vim.loop.new_timer) or pcall(vim.uv.new_timer)
-      results[#results + 1] = has_uv and "Neovim >= 0.10: OK"
-        or "Neovim: too old (need >= 0.10 for vim.uv)"
-
-      local all_ok = claude and plenary_ok and has_uv
-      return all_ok, results
-    end,
-  },
-  {
-    title = "Configure terminal provider",
-    run = function()
-      local results = {}
-      local in_tmux = vim.env.TMUX ~= nil
-      local has_snacks = pcall(require, "snacks")
-      local has_toggleterm = pcall(require, "toggleterm")
-
-      results[#results + 1] = "Detected providers:"
-      if in_tmux then
-        results[#results + 1] = "  tmux (active in $TMUX) — recommended"
-      end
-      if has_snacks then
-        results[#results + 1] = "  snacks.nvim — installed"
-      end
-      if has_toggleterm then
-        results[#results + 1] = "  toggleterm.nvim — installed"
-      end
-      results[#results + 1] = "  native (always available)"
-      results[#results + 1] = ""
-      results[#results + 1] = "Default: 'auto' detects tmux > snacks > toggleterm > native"
-      if in_tmux then
-        results[#results + 1] = "tmux is active — provider will use tmux. Good choice."
-      end
-
-      return true, results
-    end,
-  },
-  {
-    title = "Set up keymaps",
-    run = function()
-      local results = {}
-      results[#results + 1] = "Default keymaps (all <Leader>m prefix):"
-      results[#results + 1] = "  <Leader>mt — :ClideToggle  (toggle Claude terminal)"
-      results[#results + 1] = "  <Leader>ms — :ClideStart   (start server)"
-      results[#results + 1] = "  <Leader>mq — :ClideStop    (stop server)"
-      results[#results + 1] = "  <Leader>ml — :ClideLog     (view log)"
-      results[#results + 1] = "  <Leader>me — :ClideSend    (send selection, visual mode)"
-      results[#results + 1] = "  <Leader>mz — send + toggle (visual mode)"
-      results[#results + 1] = ""
-      results[#results + 1] = "Review keymaps (buffer-local, active during review):"
-      results[#results + 1] = "  <Leader>ma — accept hunk"
-      results[#results + 1] = "  <Leader>mr — reject hunk"
-      results[#results + 1] = "  <Leader>mA — accept all hunks"
-      results[#results + 1] = "  <Leader>mR — reject all hunks"
-      results[#results + 1] = "  ]h / [h   — next/prev hunk"
-      results[#results + 1] = ""
-      results[#results + 1] =
-        "Customize: require('clide').setup({ cmd_keymaps = {...}, review = { keymaps = {...} } })"
-      return true, results
-    end,
-  },
-  {
-    title = "Start and test",
-    run = function()
-      local clide = require("clide")
-      if clide.state.server then
-        return true,
-          {
-            "Server already running on port " .. clide.state.server.port,
-            "Run :ClideStop first to restart.",
-          }
-      end
-      return true,
-        {
-          "Ready to start.",
-          "Run :ClideStart to launch Claude in a terminal pane.",
-          "Claude will connect via WebSocket on 127.0.0.1.",
-          "Check :ClideLog for connection status.",
-          "",
-          "Tip: :checkhealth clide for a full diagnostic.",
-        }
-    end,
-  },
+  { title = "Welcome to clide.nvim", run = step_welcome },
+  { title = "Launch Claude", run = step_launch },
+  { title = "Send context and chat", run = step_send },
+  { title = "Session management", run = step_sessions },
 }
 
 function M.run()
   local buf = vim.api.nvim_create_buf(false, true)
   local width = math.min(80, vim.o.columns - 4)
-  local height = math.min(30, vim.o.lines - 4)
+  local height = math.min(34, vim.o.lines - 4)
   local win = vim.api.nvim_open_win(buf, true, {
     relative = "editor",
     width = width,
@@ -117,28 +140,29 @@ function M.run()
 
   vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
 
-  -- Run all steps
   local all_lines = {}
+  local sep = string.rep("─", width - 2)
+
   table.insert(all_lines, "clide.nvim — Setup Wizard")
-  table.insert(all_lines, string.rep("=", width - 2))
+  table.insert(all_lines, sep)
   table.insert(all_lines, "")
 
   for _, step in ipairs(STEPS) do
     table.insert(all_lines, "◆ " .. step.title)
     table.insert(all_lines, "")
-    local ok, results = step.run()
+    local ok, results = step.run(width)
     for _, line in ipairs(results) do
       table.insert(all_lines, "  " .. line)
     end
     table.insert(all_lines, "")
-    table.insert(all_lines, ok and "  ✓ OK" or "  ✗ Issues found")
+    table.insert(all_lines, ok and "  ✓ OK" or "  ✗ Check above")
     table.insert(all_lines, "")
     table.insert(all_lines, "")
   end
 
-  table.insert(all_lines, string.rep("─", width - 2))
-  table.insert(all_lines, "Setup complete. Run :ClideStart to begin.")
-  table.insert(all_lines, "Press q or <Esc> to close this window.")
+  table.insert(all_lines, sep)
+  table.insert(all_lines, "Run :ClideStart to begin. Press q or <Esc> to close.")
+  table.insert(all_lines, "Full docs: :help clide  |  :checkhealth clide")
 
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, all_lines)
   vim.bo[buf].modifiable = false
