@@ -6,11 +6,23 @@ local spinner_frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" 
 local spinner_idx = 0
 local spinner_timer = nil
 local _prev_state = nil -- for transition detection
+local _failure_watcher = nil
+local _cwd_watcher = nil
 
 -- ponytail: single state file — two Neovim instances sharing it will clash.
 -- Per-port state files if multi-session lands in v2.
 function M.state_file()
   return vim.fs.joinpath(vim.fn.stdpath("state"), "clide", "status")
+end
+
+--- Signal file for PostToolUseFailure: Claude writes "tool_name|error" on failure.
+function M.failure_signal_file()
+  return vim.fs.joinpath(vim.fn.stdpath("state"), "clide", "failure_signal")
+end
+
+--- Signal file for CwdChanged: Claude writes new cwd, nvim picks it up.
+function M.cwd_signal_file()
+  return vim.fs.joinpath(vim.fn.stdpath("state"), "clide", "cwd_signal")
 end
 
 local function read_state()
@@ -63,6 +75,53 @@ function M.setup()
       pcall(vim.cmd, "redrawstatus")
     end)
   )
+
+  -- PostToolUseFailure watcher: read failure signal, notify user
+  _failure_watcher = vim.uv.new_fs_event()
+  _failure_watcher:start(
+    dir,
+    {},
+    vim.schedule_wrap(function(err, fname)
+      if err or not fname then
+        return
+      end
+      if fname ~= vim.fs.basename(M.failure_signal_file()) then
+        return
+      end
+      local ok, lines = pcall(vim.fn.readfile, M.failure_signal_file())
+      if not ok or not lines or #lines == 0 then
+        return
+      end
+      local msg = vim.trim(lines[1])
+      if msg ~= "" then
+        vim.notify("Claude: " .. msg, vim.log.levels.WARN)
+      end
+    end)
+  )
+
+  -- CwdChanged watcher: read new cwd, sync nvim
+  _cwd_watcher = vim.uv.new_fs_event()
+  _cwd_watcher:start(
+    dir,
+    {},
+    vim.schedule_wrap(function(err, fname)
+      if err or not fname then
+        return
+      end
+      if fname ~= vim.fs.basename(M.cwd_signal_file()) then
+        return
+      end
+      local ok, lines = pcall(vim.fn.readfile, M.cwd_signal_file())
+      if not ok or not lines or #lines == 0 then
+        return
+      end
+      local new_cwd = vim.trim(lines[1])
+      if new_cwd ~= "" and vim.fn.isdirectory(new_cwd) == 1 then
+        pcall(vim.cmd, "cd " .. vim.fn.fnameescape(new_cwd))
+      end
+    end)
+  )
+
   if not spinner_timer then
     spinner_timer = vim.uv.new_timer()
     spinner_timer:start(
@@ -81,6 +140,16 @@ function M.teardown()
     watcher:stop()
     watcher:close()
     watcher = nil
+  end
+  if _failure_watcher then
+    _failure_watcher:stop()
+    _failure_watcher:close()
+    _failure_watcher = nil
+  end
+  if _cwd_watcher then
+    _cwd_watcher:stop()
+    _cwd_watcher:close()
+    _cwd_watcher = nil
   end
   if spinner_timer then
     spinner_timer:stop()
@@ -180,6 +249,8 @@ function M.hooks_config()
     return "sh -c 'echo " .. state .. " > " .. vim.fn.shellescape(file) .. " 2>/dev/null'"
   end
   local signal_file = require("clide.follow").signal_file()
+  local failure_file = M.failure_signal_file()
+  local cwd_file = M.cwd_signal_file()
   return {
     hooks = {
       PreToolUse = { { hooks = { { type = "command", command = write_cmd("working") } } } },
@@ -204,6 +275,37 @@ function M.hooks_config()
           },
         },
       },
+      PostToolUseFailure = {
+        {
+          hooks = {
+            {
+              type = "command",
+              command = 'sh -c \'d=$(cat 2>/dev/null) && tool=$(printf "%s" "$d"'
+                .. ' | sed -n "s/.*\\"tool_name\\"[[:space:]]*:[[:space:]]*'
+                .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
+                .. ' && [ -n "$tool" ] && printf "%s\\n" "$tool failed" > '
+                .. vim.fn.shellescape(failure_file)
+                .. "; exit 0'",
+            },
+          },
+        },
+      },
+      CwdChanged = {
+        {
+          hooks = {
+            {
+              type = "command",
+              command = 'sh -c \'d=$(cat 2>/dev/null) && cwd=$(printf "%s" "$d"'
+                .. ' | sed -n "s/.*\\"cwd\\"[[:space:]]*:[[:space:]]*'
+                .. '\\"\\([^\\"]*\\)\\".*/\\1/p")'
+                .. ' && [ -n "$cwd" ] && [ -d "$cwd" ]'
+                .. ' && printf "%s\\n" "$cwd" > '
+                .. vim.fn.shellescape(cwd_file)
+                .. "; exit 0'",
+            },
+          },
+        },
+      },
       SessionStart = {
         {
           hooks = {
@@ -219,6 +321,19 @@ function M.hooks_config()
                 .. ' "- getDiagnostics: query diagnostics from current buffer"'
                 .. ' "Visual selections made by the user are pushed to'
                 .. ' you automatically (at_mentioned) - no polling needed."'
+                .. "; exit 0'",
+            },
+          },
+        },
+      },
+      Setup = {
+        {
+          hooks = {
+            {
+              type = "command",
+              command = 'sh -c \'[ -n "$CLAUDE_CODE_SSE_PORT" ]'
+                .. ' && printf "clide.nvim session ready. nvim %s\\n" "$(nvim --version'
+                .. ' 2>/dev/null | head -1 || echo unknown)"'
                 .. "; exit 0'",
             },
           },

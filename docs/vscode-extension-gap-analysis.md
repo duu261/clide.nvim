@@ -117,3 +117,71 @@ Key settings from VS Code extension `package.json` (for comparison when designin
 **Final score: clide leads 9 dimensions, VS Code leads 0. 5 ties.**
 
 All 9 gaps closed. clide.nvim matches or exceeds every VS Code extension feature.
+
+## Claude Code internals: hooks integration opportunities
+
+Based on binary-verified Claude Code hooks system (v2.1.198, 27 events, 5 hook types, 6 config sources). Current clide.nvim uses 5 events — 22 untapped.
+
+### Current state
+
+clide writes hooks into `.claude/settings.local.json` via `status.lua:install_hooks()`:
+
+| Event | What it does | Hook type |
+|-------|-------------|-----------|
+| `PreToolUse` | Write `"working"` to state file | `command` |
+| `PostToolUse` | Extract Edit/Write file paths → follow mode | `command` |
+| `Stop` | Write `"idle"` to state file | `command` |
+| `Notification` | Write `"waiting"` to state file | `command` |
+| `SessionStart` | Inject clide.nvim tool reference (executeCode, getDiagnostics) | `command` |
+
+### Quick wins (1 hook, low effort)
+
+1. **`UserPromptSubmit` hook — inject selection directly into model context.** Stdout is injected into the model (not system prompt). Token-efficient: no `selection_changed` notify round-trip, no system-message overhead. Exit code 2 blocks the prompt entirely. Replace current selection_changed notify with `UserPromptSubmit` hook that reads `vim.v.event` from a temp file and injects `"Selection from Neovim: ..."` via stdout. Exit 0 = silent inject.
+
+2. **`PostToolUseFailure` hook — notify user of failed tool calls.** Parse tool_name from `$CLAUDE_HOOK_INPUT` stdin JSON, `vim.notify("Claude: " .. tool_name .. " failed")`. Exit 2 = stderr to model; exit 1 = stderr to user only.
+
+3. **`FileChanged` hook — trigger nvim `:checktime`.** When Claude modifies files via Bash (not Edit/Write), refresh buffers. Set `CLAUDE_ENV_FILE` with modified paths, picked up by nvim fs_event watcher.
+
+4. **`CwdChanged` hook — sync nvim cwd.** Output new cwd via stdout, read by nvim → `vim.cmd.cd(new_cwd)`. Exit 0 only.
+
+### Medium effort (2-3 hooks)
+
+5. **`Setup` hook — session environment bootstrap.** Set `CLAUDE_CODE_SSE_PORT` + nvim version + LSP status. Stdout as seed context. Runs once per session before any tool calls.
+
+6. **`Stop` hook upgrade — agent-based verification.** Replace shell command with `type: "agent"` hook (up to 50 turns, tool access). Verify implementation: "Check that all changed files compile, tests pass, no stale TODOs remain." 60s timeout default.
+
+7. **`PreToolUse` security guard — optional deny on dangerous Bash.** Exit code 2 blocks tool + stderr to model. Example: block `rm -rf /` patterns. Per hook input contract (lesson 10): `tool_name`, `tool_input`, `tool_use_id` in stdin JSON. Per `permissionDecision:"deny"` structured form, surfaces as `is_error` tool_result (not `permission_denied`) — tool-level failure, run still succeeds.
+
+### Advanced (plugin distribution, multi-provider)
+
+8. **Claude Code plugin distribution.** Ship clide.nvim as a `plugin.json`-declared plugin with bundled hooks, commands, and an optional MCP server. Users install via `claude plugin install clide-nvim@marketplace`. Caveat: Cowork has three-root namespace (regular `~/.claude/plugins/`, standalone-CLI `cowork_plugins/`, Desktop `local-agent-mode-sessions/.../cowork_plugins/`) — plugin hooks only fire when installed under the right root. Document per-runtime install path.
+
+9. **`statusLine.command` integration.** CLI supports `settings.statusLine.command` — a shell command that receives JSON stdin and outputs a formatted status line. clide could set this in `settings.local.json` to display model, cost, tool count, session duration. Status line is rendered in Claude's Ink TUI footer.
+
+10. **`PreCompact` hook — preserve clide metadata.** Inject custom compact instructions: "Preserve executeCode audit trail, tool timing data, and review queue state." Stdout becomes custom compact instructions; exit 2 blocks compaction entirely.
+
+### Hook input contract (for reference)
+
+Every hook receives stdin JSON with base fields:
+```
+session_id, transcript_path, cwd, prompt_id, permission_mode,
+agent_id, agent_type, effort:{level}
+```
+Per-event additions: `hook_event_name`, `tool_name`, `tool_input`, `tool_use_id`.
+
+Delivery: classic stdin JSON (settings.json hooks) or `control_request{subtype:"hook_callback", callback_id, input, tool_use_id}` (SDK/Cowork hosts).
+
+### Hook exit code semantics
+
+| Exit | Effect |
+|------|--------|
+| 0 | Silent success; stdout may be injected to model (SessionStart/UserPromptSubmit) |
+| 2 | **Model-visible block.** PreToolUse: block tool + stderr to model. Stop: prevent stop + stderr to model. UserPromptSubmit: block + erase prompt |
+| Other | **User-visible only.** Stderr shown to user (not model). Tool proceeds if applicable |
+
+Key: exit 2 is the only way to get model attention. Exit 1 = user sees it, model doesn't.
+
+### Version drift note
+
+Claude Code CLI is v2.1.201 (this session). Internals captured from v2.1.198. Hook event count was 27 at capture; MessageDisplay is the 30th event as of v2.1.159. Verify event list against current binary: `HOOK_EVENTS` const in `src/entrypoints/sdk/coreTypes.ts`.
+

@@ -1,10 +1,12 @@
 # clide.nvim
 
-Claude Code in Neovim - pure Lua, inline per-hunk review.
+Claude in a tmux pane, editing your Neovim buffers inline.
 
 clide.nvim implements Claude Code IDE protocol (WebSocket-MCP) directly
-in Lua on `vim.uv`. When Claude proposes edits, they appear as hunks **inside
-your real buffers** - accept or reject each one, Zed/Cursor style.
+in Lua on `vim.uv` - no Node, no Rust, no external process to babysit. Built
+around **Claude in a tmux pane beside Neovim**: you type in the pane, Claude
+edits your buffers, hunks appear **inline inside them** - accept or reject
+each one, Zed/Cursor style, without leaving Neovim.
 
 > **Status: in active development** (pre-1.0). Largely built with Claude Code -
 > human-steered, reviewed, and tested. APIs and config may change between tags.
@@ -12,7 +14,7 @@ your real buffers** - accept or reject each one, Zed/Cursor style.
 ## ✨ Features
 
 - **Pure Lua** - No Node, no Rust. Neovim >= 0.10 + `claude` CLI only.
-- **Full protocol parity** - lock-file discovery, CSPRNG auth, all 17 MCP
+- **Full protocol parity** - lock-file discovery, CSPRNG auth, all 12 IDE
   tools, selection tracking, `@`-mentions.
 - **WebSocket transport** - Claude Code IDE protocol over local WS lock-file
   discovery.
@@ -20,11 +22,17 @@ your real buffers** - accept or reject each one, Zed/Cursor style.
   each with independent RPC dispatch.
 - **Inline review** - Per-hunk accept/reject in your real buffers, cross-file
   review queue with `]h` / `[h`.
+- **7 Claude Code hooks** - PreToolUse, PostToolUse (follow mode),
+  PostToolUseFailure (warn on failed tools), CwdChanged (nvim cd sync),
+  SessionStart (inject nvim context), Setup (bootstrap), Stop, Notification.
 - **Follow mode** - Opt-in jump/notify after Claude edits files.
-- **5 terminal providers** - tmux, toggleterm.nvim, snacks.nvim, native
-  `:terminal`, or none (run claude yourself).
+- **tmux-first, 5 providers total** - tmux pane is the primary workflow
+  (survives Neovim restarts, full scrollback); toggleterm.nvim, snacks.nvim,
+  native `:terminal`, or none also work.
 - **Statusline integration** - lualine component with working/waiting/idle
   states driven by Claude Code hooks.
+- **Session management** - `:ClideSessions` picker, `:ClideContinue` resume,
+  `:ClideWorktree` create worktree.
 
 ## ⚡ Requirements
 
@@ -69,7 +77,11 @@ First run? `:checkhealth clide` verifies everything.
 ```lua
 require("clide").setup({
   autostart = false,
-  follow = "off",          -- "off" | "jump" | "notify" | "both"
+  autosave = true,          -- :wa before tool dispatch (matches VS Code default)
+  execute_code = true,      -- false disables the executeCode tool (read-only mode)
+  diagnostics_push = "error", -- min severity pushed live: error|warn|info|hint|false
+  follow = "off",           -- "off" | "jump" | "notify" | "both"
+  focus_on_send = false,    -- focus Claude pane after sending selection
   log_level = "info",
   terminal = {
     provider = "auto",      -- auto | native | tmux | toggleterm | snacks | none
@@ -111,7 +123,7 @@ follow opens in a split so Neovim never hits `E37`.
 
 | Provider | How | Pros | Cons |
 |----------|-----|------|------|
-| `tmux` | tmux pane | Survives Neovim restart, full scrollback | Requires `$TMUX` |
+| `tmux` **(recommended)** | tmux pane | Survives Neovim restart, full scrollback | Requires `$TMUX` |
 | `toggleterm` | toggleterm.nvim | Toggle-able, clean UI | Requires toggleterm.nvim |
 | `snacks` | snacks.nvim | Toggle-able, clean UI | Requires snacks.nvim |
 | `native` | `:terminal` | No deps | Scrollback lost with buffer |
@@ -126,9 +138,17 @@ follow opens in a split so Neovim never hits `E37`.
 | `:ClideStart` / `:ClideStop` | Start/stop server + claude |
 | `:ClideRestart` | Stop then start |
 | `:ClideToggle` | Toggle claude terminal |
-| `:'<,'>ClideSend` | At-mention selected range |
+| `:ClideFocus` | Focus Claude pane (tmux) |
+| `:'<,'>ClideSend` | Send selected range to Claude |
+| `:ClideSendFile` | Send current file content to Claude |
+| `:ClideSendBuffer` | Send current buffer content to Claude |
+| `:ClideSessions` | Pick + resume past Claude sessions |
+| `:ClideContinue` | Reopen last closed session |
+| `:ClideWorktree [path]` | Create git worktree + launch Claude |
+| `:ClideSetup` | Interactive setup wizard |
 | `:ClideReviewTab` | Reopen review as diff tab |
-| `:ClideInstallHooks` | Install status hooks in `.claude/settings.local.json` |
+| `:ClideReviewList` | List pending review hunks in quickfix |
+| `:ClideInstallHooks` | Install hooks in `.claude/settings.local.json` |
 | `:ClideLog` | Show log ring buffer |
 | `:checkhealth clide` | Diagnose setup |
 
@@ -140,8 +160,10 @@ require("clide.status").client_count  -- "N clients" (2+ only)
 require("clide.status").last_tool     -- last tool Claude called
 ```
 
-States: working, waiting, idle, disconnected - driven by Claude Code hooks.
-Run `:ClideInstallHooks` once per project.
+States: working, waiting, idle, disconnected - driven by Claude Code hooks
+(PreToolUse, Notification, Stop). Run `:ClideInstallHooks` once per project.
+Also installed: PostToolUse (follow mode file tracking), PostToolUseFailure
+(warn on tool failures), CwdChanged (nvim cd sync), Setup (session bootstrap).
 
 ### lualine
 
@@ -169,10 +191,11 @@ empty strings when there is nothing to show, so they collapse gracefully.
 ## 🧠 How it works
 
 ```
-┌──────────────┐    WS (IDE protocol)     ┌──────────────┐
-│  Claude CLI  │◄─────────────────────────►│  clide.nvim  │
-│  (agent)     │                           │  (Neovim)    │
-└──────────────┘                           └──────────────┘
+tmux session
+┌─────────────────────────┐  ┌──────────────────────────┐
+│  Neovim (clide.nvim)     │  │  Claude CLI pane          │
+│  buffers + inline hunks  │◄─┤  WS (IDE protocol)        │
+└─────────────────────────┘  └──────────────────────────┘
 ```
 
 Neovim binds a WS server on `127.0.0.1`, writes `~/.claude/ide/[port].lock`
@@ -246,7 +269,7 @@ with `setup({ execute_code = false })` for a read-only integration.
 53 Lua files · 0 luacheck warnings · 0 luacheck errors
 ```
 
-**Tests** - Run `make test` for live total (~120+ tests):
+**Tests** - Run `make test` for live total (138+ and counting):
 
 | Area | Tests |
 |------|-------|
@@ -255,6 +278,8 @@ with `setup({ execute_code = false })` for a read-only integration.
 | Terminal providers | 24 |
 | Tools (workspace, editors, diag, tabs, eval, search) | 27 |
 | Other (selection, sha1, config, lockfile, status, init) | 31 |
+
+Table stays approximate - `make test` is the source of truth.
 
 **Dogfooded** - Every README update, diagnostic check, and buffer save in
 this session went through WS - JSON-RPC - tool handler. End-to-end.
