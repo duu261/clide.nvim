@@ -46,120 +46,69 @@ describe("selection", function()
     vim.cmd("normal! \27")
   end)
 
-  it("emits selection_changed after leaving single-line visual mode", function()
+  it("never auto-pushes while in visual mode, even past the poll interval", function()
     local captured = {}
     selection.enable(function(method, params)
       table.insert(captured, { method = method, params = params })
     end)
-    -- Enter linewise visual on line 1, don't move, then leave
     vim.api.nvim_win_set_cursor(0, { 1, 0 })
     vim.cmd("normal! V") -- enter linewise visual mode on line 1
+    vim.wait(300, function()
+      return false
+    end) -- past the 200ms poll tick
     vim.cmd("normal! \27") -- leave visual mode
-    -- Wait for debounce timer (100ms + buffer)
-    vim.wait(500, function()
-      return #captured >= 1
+    vim.wait(300, function()
+      return false
     end)
     selection.disable()
-    assert.equals(1, #captured, "exactly one notification fired")
-    local notif = captured[1]
-    assert.equals("selection_changed", notif.method)
-    assert.is_false(notif.params.selection.isEmpty)
-    assert.equals(0, notif.params.selection.start.line) -- line 1 → 0-based
-    assert.equals(1, notif.params.selection["end"].line) -- single line, end exclusive
-    assert.matches("alpha beta", notif.params.text)
+    assert.equals(0, #captured, "explicit-only: no auto-push from poll or mode exit")
   end)
 
-  it("emits selection_changed after leaving single-line charwise visual mode", function()
-    local captured = {}
-    selection.enable(function(method, params)
-      table.insert(captured, { method = method, params = params })
-    end)
-    -- Enter charwise visual on line 1, select a few chars, don't move lines, then leave
+  it("poll updates M.latest() during visual mode without pushing", function()
+    selection.enable(function() end)
     vim.api.nvim_win_set_cursor(0, { 1, 0 })
     vim.cmd("normal! v4l") -- select "alpha"
-    vim.cmd("normal! \27") -- leave visual mode
-    vim.wait(500, function()
-      return #captured >= 1
+    vim.wait(300, function()
+      local latest = selection.latest()
+      return latest ~= nil and latest.text == "alpha"
     end)
     selection.disable()
-    -- May have received one notification from CursorMoved in visual mode + one from leaving;
-    -- at least one should have the correct selection content.
-    local has_alpha = false
-    for _, n in ipairs(captured) do
-      if n.params.text == "alpha" and not n.params.selection.isEmpty then
-        has_alpha = true
-        break
-      end
-    end
-    assert.is_true(has_alpha, "at least one notification contains 'alpha' selection")
+    assert.equals("alpha", selection.latest().text)
   end)
 
-  it("does not send duplicate notifications for the same selection", function()
-    local captured = {}
-    selection.enable(function(method, params)
-      table.insert(captured, { method = method, params = params })
-    end)
+  it("clears M.latest() on visual exit without an explicit send (Esc = discard)", function()
+    selection.enable(function() end)
     vim.api.nvim_win_set_cursor(0, { 1, 0 })
-    -- Enter visual, stay, leave — all without moving cursor
-    vim.cmd("normal! V\27")
-    vim.wait(500, function()
-      return #captured >= 1
+    vim.cmd("normal! v4l") -- select "alpha"
+    vim.wait(300, function()
+      local latest = selection.latest()
+      return latest ~= nil and latest.text == "alpha"
     end)
-    -- Trigger another ModeChanged by entering/leaving insert mode
-    -- to ensure the previous selection isn't re-sent
-    local count_before = #captured
-    vim.cmd("normal! i\27") -- enter then leave insert mode
+    vim.cmd("normal! \27") -- Esc, decline to send
     vim.wait(500, function()
-      return #captured > count_before
-    end)
+      return selection.latest() == nil
+    end, 20)
     selection.disable()
-    -- After insert-mode toggle, we should not have received another
-    -- copy of the same visual selection.
-    local visual_notifs = 0
-    for _, n in ipairs(captured) do
-      if n.method == "selection_changed" and not n.params.selection.isEmpty then
-        visual_notifs = visual_notifs + 1
-      end
-    end
-    assert.equals(1, visual_notifs, "exactly one non-empty selection_changed")
+    assert.is_nil(
+      selection.latest(),
+      "stale selection dropped after Esc, no phantom for getLatestSelection"
+    )
   end)
 
-  it("send_at_mention emits 0-based line range", function()
+  it("send_at_mention pushes selection_changed with live buffer text", function()
     local captured
     selection.enable(function(method, params)
       captured = { method = method, params = params }
     end)
+    -- Unsaved edit: buffer differs from disk, send must reflect the buffer.
+    vim.api.nvim_buf_set_lines(0, 0, 1, false, { "unsaved edit" })
     selection.send_at_mention(1, 2)
-    assert.equals("at_mentioned", captured.method)
-    assert.equals(0, captured.params.lineStart)
-    assert.equals(1, captured.params.lineEnd)
+    assert.equals("selection_changed", captured.method)
+    assert.equals(0, captured.params.selection.start.line)
+    assert.equals(2, captured.params.selection["end"].line)
+    assert.is_false(captured.params.selection.isEmpty)
+    assert.matches("unsaved edit", captured.params.text)
+    assert.matches("gamma delta", captured.params.text)
     selection.disable()
-  end)
-
-  it("emits selection_changed after staying in visual mode past debounce", function()
-    local captured = {}
-    selection.enable(function(method, params)
-      table.insert(captured, { method = method, params = params })
-    end)
-    vim.api.nvim_win_set_cursor(0, { 1, 0 })
-    vim.cmd("normal! V") -- enter linewise visual mode
-    -- Wait past the 100ms debounce while still in visual mode,
-    -- so the timer fires and the old code would send prematurely.
-    vim.wait(200, function()
-      return false
-    end)
-    local during_visual = #captured
-    vim.cmd("normal! \27") -- leave visual mode
-    vim.wait(500, function()
-      return #captured > during_visual
-    end)
-    selection.disable()
-    assert.is_true(#captured > during_visual, "notification fired after leaving visual mode")
-    local last_notif = captured[#captured]
-    assert.equals("selection_changed", last_notif.method)
-    assert.is_false(last_notif.params.selection.isEmpty)
-    assert.equals(0, last_notif.params.selection.start.line)
-    assert.equals(1, last_notif.params.selection["end"].line)
-    assert.matches("alpha beta", last_notif.params.text)
   end)
 end)
