@@ -89,6 +89,7 @@ function M.start()
       M.state.connected = true
       M.state.client_count = (M.state.client_count or 0) + 1
       log.log("info", "claude connected [client " .. cid .. "]")
+      require("clide.events").emit("ClideConnected", { client_id = cid })
       vim.schedule(function()
         vim.notify("clide: Claude " .. cid .. " connected", vim.log.levels.INFO)
       end)
@@ -110,6 +111,7 @@ function M.start()
       M.state.connected = next(sessions) ~= nil
       M.state.client_count = math.max(0, (M.state.client_count or 1) - 1)
       log.log("info", "claude disconnected [client " .. dc_id .. "]")
+      require("clide.events").emit("ClideDisconnected", { client_id = dc_id })
       vim.schedule(function()
         vim.notify("clide: Claude " .. dc_id .. " disconnected", vim.log.levels.WARN)
       end)
@@ -141,6 +143,22 @@ function M.start()
 
   require("clide.status").setup()
   require("clide.follow").setup()
+  require("clide.events").setup()
+  -- Auto-register with which-key.nvim for discoverability
+  pcall(function()
+    local wk_ok, wk = pcall(require, "which-key")
+    if wk_ok and wk.add then
+      wk.add({
+        { "<Leader>m", group = "clide" },
+        { "<Leader>mt", desc = "Toggle Claude" },
+        { "<Leader>ms", desc = "Start Server" },
+        { "<Leader>mq", desc = "Stop Server" },
+        { "<Leader>ml", desc = "View Log" },
+        { "<Leader>me", desc = "Send Selection", mode = "x" },
+        { "<Leader>mz", desc = "Send + Toggle", mode = "x" },
+      })
+    end
+  end)
   -- Auto-configure jsonls for settings schema validation (non-fatal)
   pcall(function()
     require("clide.jsonls_config").configure()
@@ -216,6 +234,7 @@ function M.start()
 
   M.state.server = server
   log.log("info", "server ready on port " .. server.port)
+  require("clide.events").emit("ClideServerReady", { port = server.port })
   vim.notify("clide: server ready on port " .. server.port, vim.log.levels.INFO)
 
   vim.api.nvim_create_autocmd("VimLeavePre", {
@@ -250,6 +269,8 @@ function M.stop()
   require("clide.terminal").close()
   require("clide.status").teardown()
   require("clide.follow").teardown()
+  require("clide.events").emit("ClideServerStop", {})
+  require("clide.events").teardown()
   M.state = {}
 end
 

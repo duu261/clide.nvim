@@ -90,4 +90,27 @@ function M.send_qf()
   return true
 end
 
+--- Populate quickfix from current buffer diagnostics.
+--- Uses vim.diagnostic.get() — the same source Claude sees via getDiagnostics.
+function M.diag_to_qf()
+  local diags = vim.diagnostic.get()
+  if #diags == 0 then
+    vim.notify("clide: no diagnostics in current buffer", vim.log.levels.INFO)
+    return
+  end
+  local items = {}
+  for _, d in ipairs(diags) do
+    local severity = ({ "Error", "Warning", "Info", "Hint" })[d.severity] or "Info"
+    table.insert(items, {
+      filename = vim.api.nvim_buf_get_name(d.bufnr),
+      lnum = d.lnum + 1,
+      col = d.col + 1,
+      text = "[" .. severity .. "] " .. (d.message or ""),
+    })
+  end
+  vim.fn.setqflist({}, " ", { title = "Clide Diagnostics", items = items })
+  vim.cmd.copen()
+  vim.notify("clide: " .. #items .. " diagnostics in quickfix", vim.log.levels.INFO)
+end
+
 return M

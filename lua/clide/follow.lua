@@ -129,8 +129,9 @@ function M.handle(path, opts)
     end
     if open then
       local same_buf = path == vim.fn.expand("%:p")
-      -- Track edit for quickfix bridge
+      -- Track edit for quickfix bridge + emit event for user hooks
       require("clide.qf_bridge").track_edit(path)
+      require("clide.events").emit("ClideEdited", { path = path })
       -- Reload any open buffer matching this path (mirrors CLI auto-refresh)
       local reloaded = 0
       for _, buf in ipairs(vim.api.nvim_list_bufs()) do
