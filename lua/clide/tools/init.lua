@@ -50,6 +50,10 @@ function M.call(name, args, respond, client_id)
     return
   end
   M._last_tool = name
+  -- autosave: ensure Claude reads current content, not stale buffers
+  if require("clide.config").get().autosave then
+    pcall(vim.cmd, "wa")
+  end
   local start = vim.uv.hrtime()
   local ok, result = pcall(def.handler, args, respond)
   local elapsed = math.floor((vim.uv.hrtime() - start) / 1000000 + 0.5)

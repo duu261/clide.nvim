@@ -59,6 +59,29 @@ function M.setup()
   vim.api.nvim_create_user_command("ClideInstallHooks", function()
     require("clide.status").install_hooks()
   end, { desc = "Install Claude Code status hooks into project settings" })
+  vim.api.nvim_create_user_command("ClideContinue", function()
+    require("clide.session").continue()
+  end, { desc = "Continue most recent Claude session" })
+  vim.api.nvim_create_user_command("ClideSessions", function()
+    require("clide.session").pick_session()
+  end, { desc = "Browse and resume past Claude sessions" })
+  vim.api.nvim_create_user_command("ClideWorktree", function(cmd)
+    local args = cmd.args
+    local path = args and #args > 0 and vim.fn.expand(args)
+      or vim.fn.expand("~/worktrees/" .. os.date("%Y-%m-%d-%H%M%S"))
+    vim.notify("clide: creating worktree at " .. path, vim.log.levels.INFO)
+    vim.cmd("terminal git worktree add " .. path .. " HEAD")
+  end, { nargs = "?", complete = "dir", desc = "Create git worktree for isolation" })
+  vim.api.nvim_create_user_command("ClideSendFile", function(cmd)
+    local path = cmd.args and #cmd.args > 0 and vim.fn.expand(cmd.args) or vim.fn.expand("%")
+    local lines = vim.fn.readfile(path)
+    if #lines == 0 then
+      vim.notify("clide: file is empty", vim.log.levels.WARN)
+      return
+    end
+    require("clide.selection").send_buffer(vim.fn.bufadd(path))
+    vim.notify("clide: sent " .. path .. " (" .. #lines .. " lines)", vim.log.levels.INFO)
+  end, { nargs = "?", complete = "file", desc = "Send file to Claude (clide @-mention)" })
 end
 
 return M

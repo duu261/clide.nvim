@@ -11,6 +11,15 @@ All keys optional. `setup()` never required - defaults apply without it.
 
 ## Top-level
 
+### `autosave`
+
+```lua
+autosave = true  -- bool
+```
+
+Save all dirty buffers (`:wa`) before tool dispatch. Ensures Claude reads
+current content, not stale buffer state. Matches VS Code extension default.
+
 ### `autostart`
 
 ```lua
@@ -174,4 +183,50 @@ Set any key to `false` to disable that mapping:
 cmd_keymaps = {
   send_toggle = false,  -- disable visual send+toggle
 }
+```
+
+## Session commands
+
+### `:ClideContinue`
+
+Continue the most recent Claude session. Launches `claude --continue` in a new
+terminal pane with IDE integration. Requires a clide server to be running.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mC", "<Cmd>ClideContinue<CR>", { desc = "clide: continue last session" })
+```
+
+### `:ClideSessions`
+
+Open a `vim.ui.select` picker over past Claude sessions from
+`~/.claude/sessions/`. Pick a session to resume it with `claude --resume <id>`.
+Sessions are sorted newest-first with timestamp, status, name, and working
+directory.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mh", "<Cmd>ClideSessions<CR>", { desc = "clide: browse sessions" })
+```
+
+### `:ClideWorktree [path]`
+
+Create a git worktree at `path` (defaults to `~/worktrees/<timestamp>`).
+Opens a terminal with `git worktree add`. Thin wrapper matching VS Code's
+`claude-vscode.createWorktree`.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mw", "<Cmd>ClideWorktree<CR>", { desc = "clide: create worktree" })
+```
+
+### `:ClideSendFile [path]`
+
+Send file content to Claude as a `selection_changed` notification. Defaults to
+current file. Equivalent to VS Code `Alt+K` @-mention for file references —
+content lands directly in Claude's context, no `openFile` round-trip needed.
+
+```lua
+-- Example map:
+vim.keymap.set("n", "<Leader>mf", "<Cmd>ClideSendFile<CR>", { desc = "clide: send file" })
 ```

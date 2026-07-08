@@ -9,6 +9,7 @@ local VALID_FOLLOW = {
 
 local defaults = {
   autostart = false,
+  autosave = true, -- bool - save dirty buffers before tool dispatch
   execute_code = true, -- bool - set false to disable executeCode tool
   -- min severity pushed via diagnostics_changed: "error" | "warn" | "info" | "hint" | false (off)
   -- default "error": every push lands in Claude's context and costs tokens;
