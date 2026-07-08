@@ -120,6 +120,19 @@ function M.disable()
   notify_fn = nil
 end
 
+--- Push a selection to all connected clients.
+--- Sends selection_changed (text + range) for live content and
+--- at_mentioned (filePath + range) for CLI's ide_opened_file attachment.
+local function push_selection(sel)
+  M._latest = sel
+  notify_fn("selection_changed", sel)
+  notify_fn("at_mentioned", {
+    filePath = sel.filePath,
+    lineStart = sel.selection.start.line,
+    lineEnd = sel.selection["end"].line,
+  })
+end
+
 --- Explicit send for lines (1-based, inclusive). Pushes selection_changed
 --- with live buffer text rather than at_mentioned's filePath+range (which
 --- only works if the buffer is saved — Claude re-reads from disk on that
@@ -133,53 +146,41 @@ function M.send_at_mention(line1, line2)
   local file_path = vim.api.nvim_buf_get_name(bufnr)
 
   -- Prefer visual marks for column-accurate selection when available
-  -- (user selected a word in visual mode then :ClideSend).
-  -- Verify marks match command range to avoid using stale marks from prior
-  -- visual mode when user typed an explicit line range.
   local mark_start = vim.fn.getpos("'<")
   local mark_end = vim.fn.getpos("'>")
   if mark_start[2] == line1 and mark_end[2] == line2 then
     local vmode = vim.fn.visualmode()
     if not vmode or vmode == "" then
-      -- visualmode() is empty after :'<,'> exit from visual mode (leader keymap).
-      -- Infer: same line = charwise (the common word-select case),
-      -- multi-line = linewise (safe, same as full-line fallback).
       vmode = (mark_start[2] == mark_end[2]) and "v" or "V"
     end
     local ok, lines = pcall(vim.fn.getregion, mark_start, mark_end, { type = vmode })
     if ok and lines and #lines > 0 then
-      local sel = {
+      push_selection({
         text = table.concat(lines, "\n"),
         filePath = file_path,
         fileUrl = "file://" .. file_path,
-
         selection = {
           start = { line = mark_start[2] - 1, character = mark_start[3] - 1 },
           ["end"] = { line = mark_end[2], character = mark_end[3] },
           isEmpty = false,
         },
-      }
-      M._latest = sel
-      notify_fn("selection_changed", sel)
+      })
       return
     end
   end
 
   -- Fallback: send full lines
   local lines = vim.api.nvim_buf_get_lines(bufnr, line1 - 1, line2, false)
-  local sel = {
+  push_selection({
     text = table.concat(lines, "\n"),
     filePath = file_path,
     fileUrl = "file://" .. file_path,
-
     selection = {
       start = { line = line1 - 1, character = 0 },
       ["end"] = { line = line2, character = 0 },
       isEmpty = false,
     },
-  }
-  M._latest = sel
-  notify_fn("selection_changed", sel)
+  })
 end
 
 --- Send an entire buffer's content (number or name) as a selection.
@@ -199,7 +200,7 @@ function M.send_buffer(bufnr_or_name)
   if #lines > 0 and lines[#lines] == "" then
     table.remove(lines)
   end
-  local sel = {
+  push_selection({
     text = table.concat(lines, "\n"),
     filePath = file_path,
     fileUrl = "file://" .. file_path,
@@ -208,9 +209,7 @@ function M.send_buffer(bufnr_or_name)
       ["end"] = { line = #lines, character = 0 },
       isEmpty = false,
     },
-  }
-  M._latest = sel
-  notify_fn("selection_changed", sel)
+  })
   vim.notify(
     "clide: sent buffer " .. tostring(bufnr) .. " (" .. #lines .. " lines)",
     vim.log.levels.INFO

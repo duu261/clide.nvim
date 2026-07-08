@@ -93,6 +93,30 @@ function M.client_count()
   return count .. " clients"
 end
 
+--- lualine: IDE selection indicator. Mirrors CLI's IdeStatusIndicator.
+--- Returns "⧉ N lines" when selection active, "⧉ In {file}" when file open.
+function M.selection()
+  local state = require("clide").state
+  if not state.server or not state.connected then
+    return ""
+  end
+  local sel = require("clide.selection").latest()
+  if not sel then
+    return ""
+  end
+  local line_count = sel.selection
+    and not sel.selection.isEmpty
+    and sel.selection.start
+    and (sel.selection["end"].line - sel.selection.start.line + 1)
+  if line_count and line_count > 0 then
+    return "⧉ " .. line_count .. " lines"
+  end
+  if sel.filePath and sel.filePath ~= "" then
+    return "⧉ " .. vim.fn.fnamemodify(sel.filePath, ":t")
+  end
+  return ""
+end
+
 --- lualine: last tool Claude called. Returns empty when nothing dispatched yet.
 function M.last_tool()
   local state = require("clide").state

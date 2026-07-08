@@ -123,14 +123,38 @@ function M.handle(path, opts)
 
   vim.schedule(function()
     if notify then
-      vim.notify(path, vim.log.levels.INFO)
+      -- Mirror CLI's ShowInIDEPrompt: "Opened changes in Neovim ⧉"
+      local rel = vim.fn.fnamemodify(path, ":~:.")
+      vim.notify("Claude edited " .. rel, vim.log.levels.INFO)
     end
     if open then
       local same_buf = path == vim.fn.expand("%:p")
-      if modified and not same_buf then
-        vim.cmd.split()
+      -- Reload any open buffer matching this path (mirrors CLI auto-refresh)
+      local reloaded = 0
+      for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        local bpath = vim.api.nvim_buf_get_name(buf)
+        if bpath == path and vim.api.nvim_buf_is_loaded(buf) then
+          if vim.bo[buf].modified then
+            vim.notify(
+              "clide: "
+                .. vim.fn.fnamemodify(path, ":t")
+                .. " has unsaved changes — skipped reload",
+              vim.log.levels.WARN
+            )
+          else
+            pcall(vim.api.nvim_buf_call, buf, function()
+              vim.cmd("edit!")
+            end)
+            reloaded = reloaded + 1
+          end
+        end
       end
-      pcall(vim.cmd.edit, vim.fn.fnameescape(path))
+      if not same_buf then
+        if modified and reloaded == 0 then
+          vim.cmd.split()
+        end
+        pcall(vim.cmd.edit, vim.fn.fnameescape(path))
+      end
     end
   end)
 end
